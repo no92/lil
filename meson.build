@@ -6,7 +6,7 @@ sources = files(
     'src/intel.c',
     'src/lvds.c',
     'src/pci.c',
-    
+
     'src/ivy_bridge/crtc.c',
     'src/ivy_bridge/gtt.c',
     'src/ivy_bridge/interrupt.c',
@@ -20,6 +20,6 @@ sources = files(
     'src/coffee_lake/plane.c',
 )
 
-library = static_library('lil', sources, pic: false)
-
-dependency = declare_dependency(link_with: library)
+include_directories = include_directories('include')
+library = static_library('lil', sources, include_directories: include_directories, pic: false)
+dependency = declare_dependency(link_with: library, include_directories: include_directories)
