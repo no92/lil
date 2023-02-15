@@ -31,6 +31,14 @@ typedef struct LilModeInfo {
  * Note: intel gpus only have one valid (connector, encoder, crtc)
  */
 
+enum LilDdiId {
+	DDI_A,
+	DDI_B,
+	DDI_C,
+	DDI_D,
+	DDI_E,
+};
+
 typedef enum LilPlaneType {
     PRIMARY, CURSOR, SPRITE,
 } LilPlaneType;
@@ -48,13 +56,19 @@ typedef struct LilPlane {
 struct LilConnector;
 
 typedef enum LilTranscoder {
+	TRANSCODER_INVALID,
     TRANSCODER_A,
     TRANSCODER_B,
     TRANSCODER_C,
-    TRANSCODER_D,
-
     TRANSCODER_EDP,
 } LilTranscoder;
+
+typedef enum LilPllId {
+	LCPLL1,
+	LCPLL2,
+	WRPLL1,
+	WRPLL2,
+} LilPllId;
 
 typedef struct LilCrtc {
     LilModeInfo current_mode;
@@ -118,9 +132,17 @@ typedef enum LilInterruptEnableMask {
 } LilInterruptEnableMask;
 
 typedef enum LilGpuGen {
-    GEN_IVB = 7,
+    GEN_IVB = 3,
+    GEN_SKL = 6,
+    GEN_KBL = 7,
     GEN_CFL = 9,
 } LilGpuGen;
+
+typedef enum LilGpuVariant {
+	H,
+	ULT,
+	ULX,
+} LilGpuVariant;
 
 typedef struct LilGpu {
     uint32_t num_connectors;

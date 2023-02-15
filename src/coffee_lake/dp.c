@@ -1,6 +1,7 @@
 #include "dp.h"
 #include "../edid.h"
 
+#include <lil/intel.h>
 #include <lil/imports.h>
 
 #define PWR_WELL_CTL2 0x45404
@@ -144,7 +145,7 @@ static void dp_unpack_aux(uint32_t src, uint8_t* data, uint8_t size) {
 }
 
 static uint32_t dp_get_aux_clock_div(struct LilGpu* gpu, int i) {
-    if(gpu->gen >= 9) {
+    if(gpu->gen >= GEN_SKL) {
         return i ? 0 : 1; // Skylake and up will automatically derive the divider
     } else {
         lil_panic("DP Unknown GPU Gen");
@@ -152,7 +153,7 @@ static uint32_t dp_get_aux_clock_div(struct LilGpu* gpu, int i) {
 }
 
 static uint32_t dp_get_aux_send_ctl(struct LilGpu* gpu, uint8_t txsize) {
-    if(gpu->gen >= 9) {
+    if(gpu->gen >= GEN_SKL) {
         return DDI_AUX_CTL_BUSY | DDI_AUX_CTL_DONE | DDI_AUX_CTL_TIMEOUT | DDI_AUX_CTL_TIMEOUT_VAL_MAX | DDI_AUX_CTL_RX_ERR | DDI_AUX_SET_MSG_SIZE(txsize) | DDI_AUX_CTL_SKL_FW_SYNC_PULSE(32) | DDI_AUX_CTL_SKL_SYNC_PULSE(32);
     } else {
         lil_panic("DP Unknown GPU gen");
