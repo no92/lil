@@ -1,5 +1,9 @@
 project('lil', 'c')
 
+add_project_arguments(['-Wno-unused-function', '-Wno-unused-variable'], language: 'c')
+
+c_std = 'gnu2x'
+
 sources = files(
     'src/edid.c',
     'src/gmbus.c',
