@@ -23,6 +23,8 @@ sources = files(
     'src/coffee_lake/gtt.c',
     'src/coffee_lake/plane.c',
 
+    'src/kaby_lake/kbl.c',
+
 	'src/vbt/parsing.c',
 	'src/vbt/vbt.c',
 )

@@ -4,6 +4,7 @@
 
 #include "src/coffee_lake/cfl.h"
 #include "src/ivy_bridge/ivb.h"
+#include "src/kaby_lake/kbl.h"
 #include "src/pci.h"
 
 void lil_init_gpu(LilGpu* ret, void* device) {
@@ -33,6 +34,15 @@ void lil_init_gpu(LilGpu* ret, void* device) {
             lil_init_ivb_gpu(ret, device);
             break;
         }
+
+		case 0x5916: {
+			uint8_t prog_if = lil_pci_readb(device, PCI_HDR_PROG_IF);
+			if(prog_if)
+				lil_panic("prog_if != 0 unsupported");
+
+			lil_init_kbl_gpu(ret);
+			break;
+		}
 
         case 0x3E9B:
         case 0x5917: {
