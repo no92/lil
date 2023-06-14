@@ -1,5 +1,6 @@
 #include <lil/intel.h>
 #include <lil/imports.h>
+#include <lil/vbt.h>
 
 #include "src/coffee_lake/cfl.h"
 #include "src/ivy_bridge/ivb.h"
@@ -21,6 +22,10 @@ void lil_init_gpu(LilGpu* ret, void* device) {
     if (class != 0x300) {
         return;
     }
+
+	ret->dev = device;
+
+	vbt_init(ret);
 
     switch (device_id) {
         case 0x0166 : {
