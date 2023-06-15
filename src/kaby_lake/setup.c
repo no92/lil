@@ -3,6 +3,9 @@
 #include <lil/pch.h>
 
 #include "src/pci.h"
+#include "src/regs.h"
+#include "src/coffee_lake/crtc.h"
+#include "src/coffee_lake/plane.h"
 #include "src/kaby_lake/gtt.h"
 #include "src/kaby_lake/kbl.h"
 #include "src/kaby_lake/pch.h"
@@ -17,6 +20,8 @@ static struct {
 	{ 240, 4 }, { 241, 8 }, { 242, 12 }, { 243, 16 }, { 244, 20 }, { 245, 24 }, { 246, 28 }, { 247, 32 },
 	{ 248, 36 }, { 249, 40 }, { 250, 44 }, { 251, 48 }, { 252, 52 }, { 253, 56 }, { 254, 60 },
 };
+
+static void kbl_crtc_init(LilGpu *gpu);
 
 static uint32_t get_gtt_size(void* device) {
     uint16_t mggc0 = lil_pci_readw(device, PCI_MGGC0);
@@ -67,4 +72,66 @@ void lil_kbl_setup(LilGpu *gpu) {
     gpu->vram = (uintptr_t) lil_map(bar2_base, gpu->stolen_memory_pages << 12);
 
 	lil_kbl_vmem_clear(gpu);
+
+	uint8_t dpll0_link_rate = (REG(DPLL_CTRL1) >> 1) & DPLL_CTRL1_LINK_RATE_MASK(0);
+	gpu->vco_8640 = dpll0_link_rate == 4 || dpll0_link_rate == 5;
+	gpu->boot_cdclk_freq = kbl_cdclk_dec_to_int(REG(SWF_6) & CDCLK_CTL_DECIMAL_MASK);
+    gpu->cdclk_freq = gpu->boot_cdclk_freq;
+
+	kbl_crtc_init(gpu);
+}
+
+static void kbl_crtc_init(LilGpu *gpu) {
+	size_t crtc_id = 0;
+
+	/* TODO: support more than one CRTC */
+	LilCrtc *crtc = gpu->connectors[0].crtc;
+    crtc->transcoder = TRANSCODER_EDP;
+    crtc->connector = &gpu->connectors[0];
+    crtc->num_planes = 1;
+    crtc->planes = lil_malloc(sizeof(LilPlane));
+	crtc->plane_id = 0;
+
+    for (int i = 0; i < crtc->num_planes; i++) {
+        crtc->planes[i].enabled = 0;
+        crtc->planes[i].pipe_id = 0;
+        crtc->planes[i].update_surface = lil_cfl_update_primary_surface;
+    }
+
+    crtc->pipe_id = 0;
+    crtc->commit_modeset = lil_kbl_commit_modeset;
+    crtc->shutdown = lil_cfl_shutdown;
+
+	enum LilPllId pll_id = 0;
+
+	uint32_t pll_choice = REG(DPLL_CTRL2) & DPLL_CTRL2_DDI_CLOCK_SELECT_MASK(gpu->ddi_id) >> DPLL_CTRL2_DDI_CLOCK_SELECT_SHIFT(gpu->ddi_id);
+
+	switch(pll_choice) {
+		case 0: {
+			if(REG(LCPLL1_CTL) & (1 << 31))
+				pll_id = LCPLL1;
+			break;
+		}
+		case 1: {
+			if(REG(LCPLL2_CTL) & (1 << 31))
+				pll_id = LCPLL2;
+			break;
+		}
+		case 2: {
+			if(REG(WRPLL_CTL1) & (1 << 31))
+				pll_id = WRPLL1;
+			break;
+		}
+		case 3: {
+			if(REG(WRPLL_CTL2) & (1 << 31))
+				pll_id = WRPLL2;
+			break;
+		}
+		default:
+			lil_panic("unsound PLL choice");
+	}
+
+	crtc->pll_id = pll_id;
+
+	/* TODO: handle the VBT bdb block for fixed mode set */
 }

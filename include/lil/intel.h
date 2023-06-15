@@ -85,6 +85,8 @@ typedef struct LilCrtc {
 
     void (*shutdown) (struct LilGpu* gpu, struct LilCrtc* crtc);
     void (*commit_modeset) (struct LilGpu* gpu, struct LilCrtc* crtc);
+
+	LilPllId pll_id;
 } LilCrtc;
 
 typedef struct LilEncoderEdp {
@@ -226,6 +228,10 @@ typedef struct LilGpu {
     void (*vmem_map) (struct LilGpu* gpu, uint64_t host, GpuAddr gpu_addr);
 
 	const struct vbt_header *vbt_header;
+
+	bool vco_8640;
+	uint32_t boot_cdclk_freq;
+	uint32_t cdclk_freq;
 
 	void *dev;
 	void *pch_dev;
