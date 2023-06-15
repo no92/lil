@@ -25,6 +25,7 @@ sources = files(
 
     'src/kaby_lake/gtt.c',
     'src/kaby_lake/kbl.c',
+    'src/kaby_lake/pch.c',
     'src/kaby_lake/plane.c',
     'src/kaby_lake/setup.c',
 
