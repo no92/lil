@@ -212,6 +212,7 @@ typedef struct LilGpu {
     LilConnector* connectors;
 
     LilGpuGen gen;
+    LilGpuVariant variant;
 	enum LilPchGen pch_gen;
 
     uintptr_t gpio_start;
