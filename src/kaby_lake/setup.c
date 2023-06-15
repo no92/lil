@@ -1,9 +1,11 @@
 #include <lil/imports.h>
 #include <lil/intel.h>
+#include <lil/pch.h>
 
 #include "src/pci.h"
 #include "src/kaby_lake/gtt.h"
 #include "src/kaby_lake/kbl.h"
+#include "src/kaby_lake/pch.h"
 
 static struct {
 	uint8_t select;
@@ -27,6 +29,14 @@ void lil_kbl_setup(LilGpu *gpu) {
 	/* enable Bus Mastering and Memory + I/O space access */
 	uint16_t command = lil_pci_readw(gpu->dev, PCI_HDR_COMMAND);
 	lil_pci_writew(gpu->dev, PCI_HDR_COMMAND, command | 7); /* Bus Master | Memory Space | I/O Space */
+
+	/* determine the PCH generation */
+	kbl_pch_get_gen(gpu);
+	if(gpu->pch_gen == LPT)
+		/* LPT has this meme where apparently the reference clock is 125 MHz */
+		gpu->ref_clock_freq = 125;
+	else
+		gpu->ref_clock_freq = 24;
 
 	/* read the `GMCH Graphics Control` register */
 	uint8_t graphics_mode_select = lil_pci_readb(gpu->dev, 0x51);
