@@ -139,6 +139,10 @@ typedef struct LilGpu {
 
     void (*vmem_clear) (struct LilGpu* gpu);
     void (*vmem_map) (struct LilGpu* gpu, uint64_t host, GpuAddr gpu_addr);
+
+	const struct vbt_header *vbt_header;
+
+	void *dev;
 } LilGpu;
 
 /*
