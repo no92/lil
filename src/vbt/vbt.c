@@ -68,4 +68,16 @@ const struct vbt_header *vbt_locate(LilGpu *gpu) {
 
 void vbt_init(LilGpu *gpu) {
 	gpu->vbt_header = vbt_locate(gpu);
+
+	const struct bdb_header *bdb_hdr = vbt_get_bdb_header(gpu->vbt_header);
+	if(!bdb_hdr)
+		lil_panic("BDB header not found");
+
+	const struct bdb_driver_features *driver_features_block = (const struct bdb_driver_features *) vbt_get_bdb_block(gpu->vbt_header, BDB_DRIVER_FEATURES);
+	if(!driver_features_block)
+		lil_panic("BDB driver features not found");
+
+	const struct bdb_general_definitions *general_defs = (const struct bdb_general_definitions *) vbt_get_bdb_block(gpu->vbt_header, BDB_GENERAL_DEFINITIONS);
+	if(!general_defs)
+		lil_panic("BDB general definitions not found");
 }
