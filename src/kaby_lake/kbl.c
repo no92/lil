@@ -4,7 +4,14 @@
 #include "src/coffee_lake/plane.h"
 #include "src/coffee_lake/dp.h"
 #include "src/coffee_lake/crtc.h"
+
+#include "src/kaby_lake/kbl.h"
+#include "src/kaby_lake/gtt.h"
+
 void lil_init_kbl_gpu(LilGpu* ret) {
+	ret->vmem_clear = lil_kbl_vmem_clear;
+	ret->vmem_map = lil_kbl_vmem_map;
+
 	ret->num_connectors = 1;
 	ret->connectors = lil_malloc(sizeof(LilConnector) * ret->num_connectors);
 
@@ -29,4 +36,5 @@ void lil_init_kbl_gpu(LilGpu* ret) {
 	ret->connectors[0].crtc->pipe_id = 0;
 	ret->connectors[0].crtc->shutdown = lil_cfl_shutdown;
 
+	lil_kbl_setup(ret);
 }

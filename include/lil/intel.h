@@ -155,6 +155,7 @@ typedef struct LilGpu {
     uintptr_t vram;
     uintptr_t gtt_address;
     size_t gtt_size;
+	size_t stolen_memory_pages;
 
     void (*enable_display_interrupt) (struct LilGpu* gpu, uint32_t enable_mask);
     void (*process_interrupt) (struct LilGpu* gpu);
