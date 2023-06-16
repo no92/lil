@@ -14,6 +14,8 @@ void kbl_ddi_buffer_setup_translations(LilGpu *gpu, LilEncoder *enc, uint32_t re
 void kbl_ddi_power_enable(LilGpu *gpu, LilCrtc *crtc);
 void kbl_ddi_balance_leg_set(LilGpu *gpu, enum LilDdiId ddi_id, uint8_t balance_leg);
 
+bool kbl_pcode_rw(LilGpu *gpu, uint32_t *data0, uint32_t *data1, uint32_t mbox, uint32_t *timeout);
+
 void lil_kbl_pci_detect(LilGpu *gpu);
 
 void kbl_plane_page_flip(LilGpu *gpu, LilCrtc *crtc);
