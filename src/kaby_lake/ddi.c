@@ -1,6 +1,7 @@
 #include <lil/imports.h>
 #include <lil/intel.h>
 
+#include "src/kaby_lake/ddi-translations.h"
 #include "src/kaby_lake/kbl.h"
 #include "src/regs.h"
 
@@ -20,6 +21,45 @@ bool kbl_ddi_hotplug_detected(LilGpu *gpu, enum LilDdiId ddi_id) {
 	}
 
 	return (REG(SDEISR) & mask);
+}
+
+static uint8_t *ddi_translation_table(LilGpu *gpu) {
+	if(gpu->gen == GEN_SKL || gpu->gen == GEN_KBL) {
+		if(gpu->variant == ULT) {
+			return skl_u_translations_edp;
+		} else if(gpu->variant == ULX) {
+			return skl_y_translations_edp;
+		} else {
+			return skl_translations_edp;
+		}
+	} else if(gpu->gen == GEN_KBL) {
+		if(gpu->variant == ULT) {
+			return kbl_u_translations_edp;
+		} else if(gpu->variant == ULX) {
+			return kbl_y_translations_edp;
+		} else {
+			return kbl_translations_edp;
+		}
+	} else {
+		lil_panic("kbl_ddi_buffer_setup_translations unsupported for this GPU gen");
+	}
+}
+
+void kbl_ddi_buffer_setup_translations(LilGpu *gpu, LilEncoder *enc, uint32_t reg) {
+	uint8_t *table = ddi_translation_table(gpu);
+
+	if(!table)
+		lil_panic("no DDI translations table found");
+
+	uint32_t *translation = (uint32_t *) &(table[80 * enc->edp.edp_vswing_preemph]);
+
+	for(size_t i = 0; i < 10; i++) {
+		REG(reg + (8 * i) + 0) = translation[(i * 2) + 0];
+		if(enc->edp.edp_iboost) {
+			REG(reg + (8 * i) + 0) |= 0x80000000;
+		}
+		REG(reg + (8 * i) + 4) = translation[(i * 2) + 1];
+	}
 }
 
 void kbl_ddi_power_enable(LilGpu *gpu, LilCrtc *crtc) {

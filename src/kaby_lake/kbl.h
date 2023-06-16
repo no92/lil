@@ -10,7 +10,7 @@ uint32_t kbl_cdclk_dec_to_int(uint32_t cdclk_freq_decimal);
 
 bool kbl_ddi_buf_enabled(LilGpu *gpu, LilCrtc *crtc);
 bool kbl_ddi_hotplug_detected(LilGpu *gpu, enum LilDdiId ddi_id);
-void kbl_ddi_buffer_setup_translations(LilGpu *gpu, uint32_t reg);
+void kbl_ddi_buffer_setup_translations(LilGpu *gpu, LilEncoder *enc, uint32_t reg);
 void kbl_ddi_power_enable(LilGpu *gpu, LilCrtc *crtc);
 void kbl_ddi_balance_leg_set(LilGpu *gpu, enum LilDdiId ddi_id, uint8_t balance_leg);
 

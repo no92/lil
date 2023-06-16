@@ -25,6 +25,7 @@ sources = files(
 
     'src/kaby_lake/cdclk.c',
     'src/kaby_lake/ddi.c',
+    'src/kaby_lake/ddi-translations.c',
     'src/kaby_lake/gtt.c',
     'src/kaby_lake/kbl.c',
     'src/kaby_lake/pch.c',
