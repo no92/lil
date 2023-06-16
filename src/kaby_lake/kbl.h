@@ -31,3 +31,6 @@ void kbl_transcoder_set_dp_msa_misc(LilGpu *gpu, LilCrtc *crtc, uint8_t bpp);
 void kbl_transcoder_ddi_polarity_setup(LilGpu *gpu, LilCrtc *crtc);
 void kbl_transcoder_ddi_setup(LilGpu *gpu, LilCrtc *crtc, uint32_t lanes);
 void kbl_transcoder_configure_m_n(LilGpu *gpu, LilCrtc *crtc, uint32_t pixel_clock, uint32_t link_rate, uint32_t max_lanes, uint32_t bpp, bool downspread);
+
+void kbl_pipe_src_size_set(LilGpu *gpu, LilCrtc *crtc);
+void kbl_pipe_dithering_enable(LilGpu *gpu, LilCrtc *crtc, uint8_t bpp);

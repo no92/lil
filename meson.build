@@ -31,6 +31,7 @@ sources = files(
     'src/kaby_lake/pch.c',
     'src/kaby_lake/pci.c',
     'src/kaby_lake/pcode.c',
+    'src/kaby_lake/pipe.c',
     'src/kaby_lake/plane.c',
     'src/kaby_lake/setup.c',
     'src/kaby_lake/transcoder.c',
