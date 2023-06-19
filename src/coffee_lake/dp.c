@@ -400,10 +400,17 @@ LilConnectorInfo lil_cfl_dp_get_connector_info (struct LilGpu* gpu, struct LilCo
     DisplayData edid = {0};
     dp_aux_read_edid(gpu, &edid);
 
+    uint32_t edp_max_pixel_clock = 990 * gpu->boot_cdclk_freq;
+
     int j = 0;
     for(int i = 0; i < 4; i++) { // Maybe 4 Detailed Timings
         if(edid.detailTimings[i].pixelClock == 0)
             continue; // Not a timing descriptor
+
+        if(connector->type == EDP && edp_max_pixel_clock && (edid.detailTimings[i].pixelClock * 10) > edp_max_pixel_clock) {
+            lil_log(WARNING, "EDID: skipping detail timings %u: pixel clock (%u KHz) > max (%u KHz)\n", i, (edid.detailTimings[i].pixelClock * 10), edp_max_pixel_clock);
+            continue;
+        }
 
         edid_timing_to_mode(&edid, edid.detailTimings[i], &info[j++]);
     }
