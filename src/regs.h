@@ -44,6 +44,17 @@
 
 #define DDI_BUF_TRANS(i) (0x64E00 + (0x60 * i))
 
+#define PS_WIN_POS_1(i) (0x68170 + (0x800 * i))
+#define PS_WIN_POS_2(i) (0x68270 + (0x800 * i))
+
+#define PS_CTRL_1(i) (0x68180 + (0x800 * i))
+#define PS_CTRL_2(i) (0x68280 + (0x800 * i))
+
+#define PS_WIN_SZ_1(i) (0x68174 + (0x800 * i))
+#define PS_WIN_SZ_2(i) (0x68274 + (0x800 * i))
+
+#define DISPIO_CR_TX_BMU_CR0 0x6C00C
+
 #define DPLL_CTRL1 0x6C058
 #define DPLL_CTRL1_LINK_RATE_MASK(i) (7 << ((i) * 6 + 1))
 #define DPLL_CTRL1_LINK_RATE(i, v) ((v) << ((i) * 6 + 1))

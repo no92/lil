@@ -7,6 +7,8 @@ void lil_init_kbl_gpu(LilGpu *ret);
 void lil_kbl_setup(LilGpu *gpu);
 
 uint32_t kbl_cdclk_dec_to_int(uint32_t cdclk_freq_decimal);
+void kbl_cdclk_set_freq(LilGpu *gpu, uint32_t cdclk_freq_int);
+void kbl_cdclk_set_for_pixel_clock(LilGpu *gpu, uint32_t *clock);
 
 bool kbl_ddi_buf_enabled(LilGpu *gpu, LilCrtc *crtc);
 bool kbl_ddi_hotplug_detected(LilGpu *gpu, enum LilDdiId ddi_id);
@@ -15,6 +17,8 @@ void kbl_ddi_power_enable(LilGpu *gpu, LilCrtc *crtc);
 void kbl_ddi_balance_leg_set(LilGpu *gpu, enum LilDdiId ddi_id, uint8_t balance_leg);
 
 bool kbl_pcode_rw(LilGpu *gpu, uint32_t *data0, uint32_t *data1, uint32_t mbox, uint32_t *timeout);
+
+void lil_kbl_commit_modeset(struct LilGpu* gpu, struct LilCrtc* crtc);
 
 void lil_kbl_pci_detect(LilGpu *gpu);
 

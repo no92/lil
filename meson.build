@@ -24,8 +24,10 @@ sources = files(
     'src/coffee_lake/plane.c',
 
     'src/kaby_lake/cdclk.c',
+    'src/kaby_lake/crtc.c',
     'src/kaby_lake/ddi.c',
     'src/kaby_lake/ddi-translations.c',
+    'src/kaby_lake/edp.c',
     'src/kaby_lake/gtt.c',
     'src/kaby_lake/kbl.c',
     'src/kaby_lake/pch.c',

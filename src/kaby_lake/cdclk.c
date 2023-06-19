@@ -33,3 +33,127 @@ uint32_t kbl_cdclk_dec_to_int(uint32_t cdclk_freq_decimal) {
 	return 0;
 }
 
+void kbl_cdclk_set_freq(LilGpu *gpu, uint32_t cdclk_freq_int) {
+	uint32_t cdfreq_decimal = 0;
+	uint32_t cdfreq_select = 0;
+
+	switch(cdclk_freq_int) {
+		case 309: {
+			cdfreq_decimal = 615;
+			cdfreq_select = 0x8000000;
+			break;
+		}
+		case 338: {
+			cdfreq_decimal = 673;
+			cdfreq_select = 0x8000000;
+			break;
+		}
+		case 432: {
+			cdfreq_decimal = 862;
+			cdfreq_select = 0;
+			break;
+		}
+		case 450: {
+			cdfreq_decimal = 898;
+			cdfreq_select = 0;
+			break;
+		}
+		case 540: {
+			cdfreq_decimal = 1078;
+			cdfreq_select = 0x4000000;
+			break;
+		}
+		case 618: {
+			cdfreq_decimal = 1232;
+			cdfreq_select = 0xC000000;
+			break;
+		}
+		case 675: {
+			cdfreq_decimal = 1348;
+			cdfreq_select = 0xC000000;
+			break;
+		}
+		default: {
+			lil_log(ERROR, "cdclk_int=%u\n", cdclk_freq_int);
+			lil_panic("unhandled cdclk");
+		}
+	}
+
+	uint32_t big_timeout = 3000;
+	uint32_t data0 = 0;
+	uint32_t data1 = 0;
+
+	while(1) {
+		uint32_t pcode_max_timeout = (big_timeout < 150) ? big_timeout : 150;
+		uint32_t pcode_real_timeout = pcode_max_timeout;
+
+		data0 = 3;
+
+		if(!kbl_pcode_rw(gpu, &data0, &data1, 7, &pcode_real_timeout))
+			lil_panic("cdclk pcode_rw failed");
+
+		if(data0 & 1) {
+			break;
+		}
+
+		lil_usleep(10);
+
+		big_timeout = (big_timeout + pcode_real_timeout - pcode_max_timeout) - 10;
+
+		if(!big_timeout)
+			lil_panic("timeout in cdclk_set_freq");
+	}
+
+	REG(CDCLK_CTL) = cdfreq_decimal | cdfreq_select | (REG(CDCLK_CTL) & 0xF3FFF800);
+
+	lil_usleep(10);
+
+	switch(cdfreq_select) {
+		case 0: {
+			data0 = 1;
+			break;
+		}
+		case 0x4000000: {
+			data0 = 2;
+			break;
+		}
+		case 0x8000000: {
+			data0 = 0;
+			break;
+		}
+		case 0xC000000: {
+			data0 = 3;
+			break;
+		}
+		default:
+			lil_panic("invalid cdfreq_select");
+	}
+
+	data1 = 0;
+
+	uint32_t timeout = 100;
+
+	if(!kbl_pcode_rw(gpu, &data0, &data1, 7, &timeout))
+		lil_panic("timeout in cdclk set");
+
+	gpu->cdclk_freq = cdclk_freq_int;
+}
+
+void kbl_cdclk_set_for_pixel_clock(LilGpu *gpu, uint32_t *pixel_clock) {
+	struct vco_lookup *table = (gpu->vco_8640) ? vco8640_lookup : vco8100_lookup;
+	size_t offset = 0;
+	uint32_t clock = *pixel_clock;
+
+	while(clock >= 990 * table[offset].integer) {
+		if(++offset >= 4) {
+			lil_panic("VCO table lookup failed");
+		}
+	}
+
+	uint32_t vco_val = table[offset].integer;
+
+	if(vco_val != gpu->cdclk_freq) {
+		kbl_cdclk_set_freq(gpu, vco_val);
+	}
+}
+

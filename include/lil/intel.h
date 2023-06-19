@@ -230,6 +230,9 @@ typedef struct LilGpu {
 
 	const struct vbt_header *vbt_header;
 
+	uint16_t supported_link_rates[8];
+	size_t supported_link_rates_len;
+
 	bool vco_8640;
 	uint32_t boot_cdclk_freq;
 	uint32_t cdclk_freq;

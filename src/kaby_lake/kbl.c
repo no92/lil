@@ -34,6 +34,7 @@ void lil_init_kbl_gpu(LilGpu* ret) {
 		ret->connectors[0].crtc->planes[i].update_surface = lil_cfl_update_primary_surface;
 	}
 	ret->connectors[0].crtc->pipe_id = 0;
+    ret->connectors[0].crtc->commit_modeset = lil_kbl_commit_modeset;
 	ret->connectors[0].crtc->shutdown = lil_cfl_shutdown;
 
 	lil_kbl_pci_detect(ret);
