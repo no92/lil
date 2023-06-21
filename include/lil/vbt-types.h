@@ -85,6 +85,11 @@ struct bdb_general_features {
 struct child_device {
 	uint16_t handle;
 	uint16_t device_type;
+#define DEVICE_TYPE_HDMI 0x60D2
+#define DEVICE_TYPE_DP_DUAL_MODE 0x60D6
+
+#define DEVICE_TYPE_INTERNAL_CONNECTOR (1 << 12)
+#define DEVICE_TYPE_DISPLAYPORT_OUTPUT (1 << 2)
 
 	union {
 		uint8_t device_id[10];
