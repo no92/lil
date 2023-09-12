@@ -36,8 +36,9 @@ void lil_init_cfl_gpu(LilGpu* ret, void* device) {
     lil_get_bar(device, 2, &base, &len);
     ret->vram = (uintptr_t)lil_map(base, len);
 
+    ret->max_connectors = 1;
     ret->num_connectors = 1;
-    ret->connectors = lil_malloc(sizeof(LilConnector) * ret->num_connectors);
+    ret->connectors = lil_malloc(sizeof(LilConnector) * ret->max_connectors);
 
     ret->connectors[0].id = 0;
     ret->connectors[0].type = DISPLAYPORT;
@@ -54,7 +55,7 @@ void lil_init_cfl_gpu(LilGpu* ret, void* device) {
     ret->connectors[0].crtc->connector = &ret->connectors[0];
     ret->connectors[0].crtc->num_planes = 1;
     ret->connectors[0].crtc->planes = lil_malloc(sizeof(LilPlane));
-    for (int i = 0; i < ret->connectors[0].crtc->num_planes; i++) {
+    for (size_t i = 0; i < ret->connectors[0].crtc->num_planes; i++) {
         ret->connectors[0].crtc->planes[i].enabled = 0;
         ret->connectors[0].crtc->planes[i].pipe_id = 0;
         ret->connectors[0].crtc->planes[i].update_surface = lil_cfl_update_primary_surface;

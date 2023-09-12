@@ -2,6 +2,10 @@
 #include <lil/imports.h>
 #include <lil/vbt.h>
 
+#include "src/coffee_lake/crtc.h"
+#include "src/coffee_lake/dp.h"
+#include "src/coffee_lake/plane.h"
+#include "src/kaby_lake/kbl.h"
 #include "src/pci.h"
 #include "src/vbt/opregion.h"
 
@@ -82,77 +86,142 @@ void vbt_init(LilGpu *gpu) {
 		lil_panic("BDB general definitions not found");
 
 	uint8_t dvo = general_defs->child_dev[0].dvo_port;
+}
 
-	if(driver_features_block->lvds_config == LVDS_CONFIG_EDP) {
-		gpu->ddi_id = vbt_dvo_to_ddi(dvo);
+static uint32_t vbt_handle_to_port(uint32_t handle) {
+	switch(handle) {
+		case 4:
+			return 0;
+		case 0x10:
+			return 3;
+		case 0x20:
+			return 2;
+		case 0x40:
+			return 1;
+		default: {
+			lil_log(ERROR, "unexpected VBT child handle %#x\n", handle);
+			lil_panic("unhandled VBT child handle");
+		}
 	}
+}
 
-	const struct bdb_edp *edp = (const struct bdb_edp *) vbt_get_bdb_block(gpu->vbt_header, BDB_EDP);
-	if(!edp)
-		lil_panic("BDB eDP not found");
+static enum LilAuxChannel vbt_parse_aux_channel(uint8_t aux_ch) {
+	switch(aux_ch) {
+		case 0x40: return AUX_CH_A;
+		case 0x10: return AUX_CH_B;
+		case 0x20: return AUX_CH_C;
+		case 0x30: return AUX_CH_D;
+		case 0x50: return AUX_CH_E;
+		case 0x60: return AUX_CH_F;
+		case 0x70: return AUX_CH_G;
+		case 0x80: return AUX_CH_H;
+		case 0x90: return AUX_CH_I;
+		default: {
+			lil_log(WARNING, "Unhandled VBT child AUX channel %#x; falling back to AUX channel A\n", aux_ch);
+			return AUX_CH_A;
+		}
+	}
+}
 
-	if(gpu->ddi_id) {
-		gpu->edp_max_lanes = 4;
-	} else {
-		uint8_t max_lanes = 4;
+void vbt_setup_children(LilGpu *gpu) {
+	size_t con_id = 0;
 
-		for(size_t child = 0; child < 8; child++) {
-			if(general_defs->child_dev[child].device_type) {
-				if(general_defs->child_dev[child].dvo_port == 12 || general_defs->child_dev[child].dvo_port == 11) {
-					max_lanes = 2;
-					break;
-				}
-			}
+	const struct bdb_driver_features *driver_features = (void *) vbt_get_bdb_block(gpu->vbt_header, BDB_DRIVER_FEATURES);
+	const struct bdb_general_definitions *general_defs = (void *) vbt_get_bdb_block(gpu->vbt_header, BDB_GENERAL_DEFINITIONS);
+
+	if(driver_features->lvds_config != LVDS_CONFIG_NONE) {
+		struct child_device *dev = (void *) &general_defs->child_dev;
+		LilConnector *con = &gpu->connectors[0];
+
+		lil_assert((dev->device_type & (DEVICE_TYPE_DISPLAYPORT_OUTPUT | DEVICE_TYPE_INTERNAL_CONNECTOR)));
+
+		con->id = 0;
+		con->type = EDP;
+		con->on_pch = true;
+		con->ddi_id = vbt_dvo_to_ddi(dev->dvo_port);
+		lil_assert(con->ddi_id == 0 || con->ddi_id == 3);
+		con->aux_ch = vbt_parse_aux_channel(dev->aux_channel);
+
+		con->get_connector_info = lil_cfl_dp_get_connector_info;
+		con->is_connected = lil_cfl_dp_is_connected;
+		con->get_state = lil_cfl_dp_get_state;
+		con->set_state = lil_cfl_dp_set_state;
+
+		con->encoder = lil_malloc(sizeof(LilEncoder));
+
+		con->crtc = lil_malloc(sizeof(LilCrtc));
+		con->crtc->transcoder = (con->ddi_id == DDI_A) ? TRANSCODER_EDP : TRANSCODER_A;
+		con->crtc->connector = &gpu->connectors[0];
+
+		con->crtc->num_planes = 1;
+		con->crtc->planes = lil_malloc(sizeof(LilPlane));
+		for(size_t i = 0; i < con->crtc->num_planes; i++) {
+			con->crtc->planes[i].enabled = 0;
+			con->crtc->planes[i].pipe_id = 0;
+			con->crtc->planes[i].update_surface = lil_cfl_update_primary_surface;
 		}
 
-		gpu->edp_max_lanes = max_lanes;
+		con->crtc->pipe_id = 0;
+		con->crtc->commit_modeset = lil_kbl_commit_modeset;
+		con->crtc->shutdown = lil_kbl_crtc_dp_shutdown;
+
+		kbl_encoder_edp_init(gpu, con->encoder);
+
+		con_id++;
 	}
 
-	gpu->edp_vswing_preemph = (edp->edp_vswing_preemph >> (4 * panel_type)) & 0xF;
-	gpu->t8 = edp->power_seqs[panel_type].t8;
-	gpu->vbt_edp_fast_link_training = (edp->fast_link_training >> panel_type) & 1;
-	gpu->edp_fast_link_lanes = edp->fast_link_params[panel_type].lanes;
-	gpu->edp_iboost = general_defs->child_dev[0].iboost;
-	gpu->edp_port_reversal = general_defs->child_dev[0].lane_reversal;
-	gpu->pwm_on_to_backlight_enable = edp->pwm_delays[panel_type].pwm_on_to_backlight_enable;
+	size_t children = (general_defs->header.size - sizeof(*general_defs) + sizeof(struct bdb_block_header)) / general_defs->child_dev_size;
 
-	uint32_t color_depth = (edp->color_depth >> (2 * panel_type)) & 3;
+	for(size_t child = con_id; child < 8; child++) {
+		struct child_device *dev = (void *) ((uintptr_t) &general_defs->child_dev + (child * general_defs->child_dev_size));
+		uint32_t device_type = dev->device_type;
 
-	switch(color_depth) {
-		case 0:
-			gpu->edp_color_depth = 18;
-			break;
-		case 1:
-			gpu->edp_color_depth = 24;
-			break;
-		case 2:
-			gpu->edp_color_depth = 30;
-			break;
-		case 3:
-			gpu->edp_color_depth = 36;
-			break;
+		switch(device_type) {
+			case 0: {
+				continue;
+			}
+			case DEVICE_TYPE_DP_DUAL_MODE: {
+				LilConnector *con = &gpu->connectors[con_id];
+
+				con->id = vbt_handle_to_port(dev->handle);
+				// con->type = DISPLAYPORT;
+				con->type = HDMI;
+				con->ddi_id = vbt_dvo_to_ddi(dev->dvo_port);
+				con->aux_ch = vbt_parse_aux_channel(dev->aux_channel);
+
+				con->get_connector_info = lil_kbl_hdmi_get_connector_info;
+				con->is_connected = lil_kbl_hdmi_is_connected;
+
+				con->encoder = lil_malloc(sizeof(LilEncoder));
+
+				con->crtc = lil_malloc(sizeof(LilCrtc));
+				con->crtc->connector = con;
+
+				con->crtc->pipe_id = 1;
+				con->crtc->transcoder = con->crtc->pipe_id;
+				con->crtc->commit_modeset = lil_kbl_hdmi_commit_modeset;
+				con->crtc->shutdown = lil_kbl_hdmi_shutdown;
+
+				con->crtc->num_planes = 1;
+				con->crtc->planes = lil_malloc(sizeof(LilPlane));
+				for(size_t i = 0; i < con->crtc->num_planes; i++) {
+					con->crtc->planes[i].enabled = true;
+					con->crtc->planes[i].pipe_id = con->crtc->pipe_id;
+					con->crtc->planes[i].update_surface = lil_cfl_update_primary_surface;
+				}
+
+				// kbl_encoder_dp_init(gpu, con->encoder, con_id);
+				kbl_encoder_hdmi_init(gpu, con->encoder, dev);
+
+				con_id++;
+				break;
+			}
+			default: {
+				lil_log(WARNING, "VBT: found unknown device type %#x\n", device_type);
+				break;
+			}
+		}
 	}
 
-	switch(general_defs->child_dev[0].dp_iboost_level) {
-		case 0:
-			gpu->edp_balance_leg_val = 1;
-			break;
-		case 1:
-			gpu->edp_balance_leg_val = 3;
-			break;
-		case 2:
-			gpu->edp_balance_leg_val = 7;
-			break;
-	}
-
-	const struct bdb_lfp_blc *lfp_blc = (const struct bdb_lfp_blc *) vbt_get_bdb_block(gpu->vbt_header, BDB_LVDS_BLC);
-
-	gpu->backlight_control_method_type = lfp_blc->backlight_control[panel_type].type & 0xF;
-	gpu->pwm_inv_freq = lfp_blc->panel[panel_type].pwm_freq_hz;
-
-	const struct bdb_general_features *general_features = (const struct bdb_general_features *) vbt_get_bdb_block(gpu->vbt_header, BDB_GENERAL_FEATURES);
-	if(!general_features)
-		lil_panic("BDB general features not found");
-
-	gpu->dynamic_cdclk_supported = general_features->display_clock_mode;
+	gpu->num_connectors = con_id;
 }

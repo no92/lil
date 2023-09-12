@@ -15,7 +15,7 @@ LilConnectorInfo lil_lvds_get_connector_info (struct LilGpu* gpu, struct LilConn
     (void)connector;
     LilConnectorInfo ret = {0};
     LilModeInfo* info = lil_malloc(sizeof(LilModeInfo) * 4);
-    ret.num_modes = lil_gmbus_get_mode_info(gpu, info, 0b11);
+    ret.num_modes = lil_gmbus_get_mode_info(gpu, connector, info);
     ret.modes = info;
     return ret;
 }

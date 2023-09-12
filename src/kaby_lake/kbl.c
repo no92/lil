@@ -1,10 +1,6 @@
 #include <lil/imports.h>
 #include <lil/intel.h>
 
-#include "src/coffee_lake/plane.h"
-#include "src/coffee_lake/dp.h"
-#include "src/coffee_lake/crtc.h"
-
 #include "src/kaby_lake/kbl.h"
 #include "src/kaby_lake/gtt.h"
 
@@ -12,31 +8,43 @@ void lil_init_kbl_gpu(LilGpu* ret) {
 	ret->vmem_clear = lil_kbl_vmem_clear;
 	ret->vmem_map = lil_kbl_vmem_map;
 
-	ret->num_connectors = 1;
-	ret->connectors = lil_malloc(sizeof(LilConnector) * ret->num_connectors);
-
-	ret->connectors[0].id = 0;
-	ret->connectors[0].type = EDP;
-	ret->connectors[0].on_pch = true;
-	ret->connectors[0].get_connector_info = lil_cfl_dp_get_connector_info;
-	ret->connectors[0].is_connected = lil_cfl_dp_is_connected;
-	ret->connectors[0].get_state = lil_cfl_dp_get_state;
-	ret->connectors[0].set_state = lil_cfl_dp_set_state;
-
-	ret->connectors[0].crtc = lil_malloc(sizeof(LilCrtc));
-	ret->connectors[0].crtc->transcoder = TRANSCODER_EDP;
-	ret->connectors[0].crtc->connector = &ret->connectors[0];
-	ret->connectors[0].crtc->num_planes = 1;
-	ret->connectors[0].crtc->planes = lil_malloc(sizeof(LilPlane));
-	for (int i = 0; i < ret->connectors[0].crtc->num_planes; i++) {
-		ret->connectors[0].crtc->planes[i].enabled = 0;
-		ret->connectors[0].crtc->planes[i].pipe_id = 0;
-		ret->connectors[0].crtc->planes[i].update_surface = lil_cfl_update_primary_surface;
-	}
-	ret->connectors[0].crtc->pipe_id = 0;
-    ret->connectors[0].crtc->commit_modeset = lil_kbl_commit_modeset;
-	ret->connectors[0].crtc->shutdown = lil_cfl_shutdown;
+	ret->max_connectors = 4;
+	ret->connectors = lil_malloc(sizeof(LilConnector) * ret->max_connectors);
 
 	lil_kbl_pci_detect(ret);
+
+	switch(ret->gen) {
+		case GEN_SKL: {
+			lil_log(VERBOSE, "\tGPU gen: Skylake\n");
+			break;
+		}
+		case GEN_KBL: {
+			lil_log(VERBOSE, "\tGPU gen: Kaby Lake\n");
+			break;
+		}
+		case GEN_CFL: {
+			lil_log(VERBOSE, "\tGPU gen: Coffee Lake\n");
+			break;
+		}
+		default: {
+			lil_assert(false);
+		}
+	}
+
+	switch(ret->variant) {
+		case H: {
+			lil_log(VERBOSE, "\tGPU variant: H\n");
+			break;
+		}
+		case ULT: {
+			lil_log(VERBOSE, "\tGPU variant: ULT\n");
+			break;
+		}
+		case ULX: {
+			lil_log(VERBOSE, "\tGPU variant: ULX\n");
+			break;
+		}
+	}
+
 	lil_kbl_setup(ret);
 }

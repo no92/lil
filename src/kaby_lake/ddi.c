@@ -6,7 +6,7 @@
 #include "src/regs.h"
 
 bool kbl_ddi_buf_enabled(LilGpu *gpu, LilCrtc *crtc) {
-	return REG(DDI_BUF_CTL(crtc->connector->ddi_id) & DDI_BUF_CTL_ENABLED);
+	return REG(DDI_BUF_CTL(crtc->connector->ddi_id) & DDI_BUF_CTL_ENABLE);
 }
 
 bool kbl_ddi_hotplug_detected(LilGpu *gpu, enum LilDdiId ddi_id) {
@@ -96,6 +96,24 @@ void kbl_ddi_power_enable(LilGpu *gpu, LilCrtc *crtc) {
 		lil_panic("timeout on DDI powerup?");
 }
 
+void kbl_ddi_power_disable(LilGpu *gpu, LilConnector *con) {
+	switch(con->ddi_id) {
+		case DDI_B:
+			REG(HSW_PWR_WELL_CTL1) &= 0xFFFFFFDF;
+			break;
+		case DDI_C:
+			REG(HSW_PWR_WELL_CTL1) &= 0xFFFFFF7F;
+			break;
+		case DDI_D:
+			REG(HSW_PWR_WELL_CTL1) &= 0xFFFFFDFF;
+			break;
+		default:
+			/* TODO: only shut this down if there are two enabled CRTC, at least one of which that isn't LFP */
+			lil_log(WARNING, "shutdown of DDI A or E is unhandled!\n");
+			break;
+	}
+}
+
 void kbl_ddi_balance_leg_set(LilGpu *gpu, enum LilDdiId ddi_id, uint8_t balance_leg) {
 	uint32_t unset = 0;
 	uint32_t set = 0;
@@ -126,4 +144,8 @@ void kbl_ddi_balance_leg_set(LilGpu *gpu, enum LilDdiId ddi_id, uint8_t balance_
 	}
 
 	REG(DISPIO_CR_TX_BMU_CR0) = set | (REG(DISPIO_CR_TX_BMU_CR0) & ~unset);
+}
+
+void kbl_ddi_clock_disable(LilGpu *gpu, LilCrtc *crtc) {
+	REG(DPLL_CTRL2) |= (1 << (15 + crtc->connector->ddi_id));
 }

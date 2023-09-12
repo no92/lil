@@ -27,6 +27,9 @@ typedef struct LilModeInfo {
 	int hsyncEnd;
 	int htotal;
     int bpc;
+    int bpp;
+	int hsyncPolarity;
+	int vsyncPolarity;
 } LilModeInfo;
 
 /*
@@ -58,18 +61,19 @@ typedef struct LilPlane {
 struct LilConnector;
 
 typedef enum LilTranscoder {
-	TRANSCODER_INVALID,
     TRANSCODER_A,
     TRANSCODER_B,
     TRANSCODER_C,
     TRANSCODER_EDP,
+    INVALID_TRANSCODER,
 } LilTranscoder;
 
 typedef enum LilPllId {
-	LCPLL1,
-	LCPLL2,
-	WRPLL1,
-	WRPLL2,
+	LCPLL1 = 1,
+	LCPLL2 = 2,
+	WRPLL1 = 3,
+	WRPLL2 = 4,
+	INVALID_PLL = 4,
 } LilPllId;
 
 typedef struct LilCrtc {
@@ -129,9 +133,25 @@ typedef struct LilEncoderEdp {
 	size_t supported_link_rates_len;
 } LilEncoderEdp;
 
+typedef struct LilEncoderDp {
+	bool vbios_hotplug_support;
+
+	uint8_t aux_ch;
+} LilEncoderDp;
+
+typedef struct LilEncoderHdmi {
+	uint8_t ddc_pin;
+	uint8_t aux_ch;
+	uint8_t iboost_level;
+	uint8_t hdmi_level_shift;
+	bool iboost;
+} LilEncoderHdmi;
+
 typedef struct LilEncoder {
 	union {
 		LilEncoderEdp edp;
+		LilEncoderDp dp;
+		LilEncoderHdmi hdmi;
 	};
 } LilEncoder;
 
@@ -186,6 +206,9 @@ typedef struct LilConnector {
     //indicates whether vertical sync/blank is happening for this connector.
     bool vsync;
     bool vblank;
+
+	enum LilDdiId ddi_id;
+	enum LilAuxChannel aux_ch;
 } LilConnector;
 
 typedef enum LilInterruptEnableMask {
@@ -208,6 +231,7 @@ typedef enum LilGpuVariant {
 } LilGpuVariant;
 
 typedef struct LilGpu {
+    uint32_t max_connectors;
     uint32_t num_connectors;
     LilConnector* connectors;
 
@@ -230,8 +254,11 @@ typedef struct LilGpu {
 
 	const struct vbt_header *vbt_header;
 
-	uint16_t supported_link_rates[8];
-	size_t supported_link_rates_len;
+	/* reference clock frequency in MHz */
+	uint32_t ref_clock_freq;
+
+	uint32_t mem_latency_first_set;
+	uint32_t mem_latency_second_set;
 
 	bool vco_8640;
 	uint32_t boot_cdclk_freq;

@@ -1,7 +1,9 @@
 #include <lil/imports.h>
 #include <lil/intel.h>
 #include <lil/pch.h>
+#include <lil/vbt.h>
 
+#include "lil/vbt-types.h"
 #include "src/pci.h"
 #include "src/regs.h"
 #include "src/coffee_lake/crtc.h"
@@ -21,7 +23,7 @@ static struct {
 	{ 248, 36 }, { 249, 40 }, { 250, 44 }, { 251, 48 }, { 252, 52 }, { 253, 56 }, { 254, 60 },
 };
 
-static void kbl_crtc_init(LilGpu *gpu);
+static void kbl_crtc_init(LilGpu *gpu, LilCrtc *crtc);
 
 static uint32_t get_gtt_size(void* device) {
     uint16_t mggc0 = lil_pci_readw(device, PCI_MGGC0);
@@ -30,18 +32,40 @@ static uint32_t get_gtt_size(void* device) {
     return size * 1024 * 1024;
 }
 
+static void wm_latency_setup(LilGpu *gpu) {
+	uint32_t data0 = 0;
+	uint32_t data1 = 0;
+	uint32_t timeout = 100;
+	if(kbl_pcode_rw(gpu, &data0, &data1, 6, &timeout)) {
+		gpu->mem_latency_first_set = data0;
+
+		data0 = 1;
+		data1 = 0;
+		timeout = 100;
+
+		if(kbl_pcode_rw(gpu, &data0, &data1, 6, &timeout)) {
+			gpu->mem_latency_second_set = data0;
+		}
+	}
+}
+
 void lil_kbl_setup(LilGpu *gpu) {
 	/* enable Bus Mastering and Memory + I/O space access */
 	uint16_t command = lil_pci_readw(gpu->dev, PCI_HDR_COMMAND);
 	lil_pci_writew(gpu->dev, PCI_HDR_COMMAND, command | 7); /* Bus Master | Memory Space | I/O Space */
+	command = lil_pci_readw(gpu->dev, PCI_HDR_COMMAND);
+	lil_assert(command & 2);
 
 	/* determine the PCH generation */
 	kbl_pch_get_gen(gpu);
-	if(gpu->pch_gen == LPT)
+	if(gpu->pch_gen == LPT) {
 		/* LPT has this meme where apparently the reference clock is 125 MHz */
 		gpu->ref_clock_freq = 125;
-	else
+	} else {
 		gpu->ref_clock_freq = 24;
+	}
+
+	lil_log(VERBOSE, "\tPCH gen %u\n", gpu->pch_gen);
 
 	/* read the `GMCH Graphics Control` register */
 	uint8_t graphics_mode_select = lil_pci_readb(gpu->dev, 0x51);
@@ -54,6 +78,8 @@ void lil_kbl_setup(LilGpu *gpu) {
 		}
 	}
 
+	lil_log(VERBOSE, "%lu MiB pre-allocated memory\n", pre_allocated_memory_mb);
+
 	gpu->stolen_memory_pages = (pre_allocated_memory_mb << 10) >> 2;
 
 	uintptr_t bar0_base;
@@ -61,6 +87,7 @@ void lil_kbl_setup(LilGpu *gpu) {
     lil_get_bar(gpu->dev, 0, &bar0_base, &bar0_len);
 
     gpu->mmio_start = (uintptr_t) lil_map(bar0_base, bar0_len);
+	gpu->gpio_start = 0xC0000;
 
 	/* Half of the BAR space is registers, half is GTT PTEs */
     gpu->gtt_size = bar0_len / 2;
@@ -73,38 +100,56 @@ void lil_kbl_setup(LilGpu *gpu) {
 
 	lil_kbl_vmem_clear(gpu);
 
-	uint8_t dpll0_link_rate = (REG(DPLL_CTRL1) >> 1) & DPLL_CTRL1_LINK_RATE_MASK(0);
+	/* TODO: on cold boot, perform the display init sequence */
+
+	uint8_t dpll0_link_rate = (REG(DPLL_CTRL1) & DPLL_CTRL1_LINK_RATE_MASK(0)) >> 1;
 	gpu->vco_8640 = dpll0_link_rate == 4 || dpll0_link_rate == 5;
 	gpu->boot_cdclk_freq = kbl_cdclk_dec_to_int(REG(SWF_6) & CDCLK_CTL_DECIMAL_MASK);
-    gpu->cdclk_freq = gpu->boot_cdclk_freq;
+    gpu->cdclk_freq = kbl_cdclk_dec_to_int(REG(CDCLK_CTL) & CDCLK_CTL_DECIMAL_MASK);
 
-	kbl_crtc_init(gpu);
+	wm_latency_setup(gpu);
+
+	vbt_setup_children(gpu);
+
+	for(size_t i = 0; i < gpu->num_connectors; i++) {
+		lil_log(INFO, "pre-enabling connector %lu\n", i);
+
+		switch(gpu->connectors[i].type) {
+			case EDP: {
+				// if(!kbl_edp_pre_enable(gpu, &gpu->connectors[i]))
+					// lil_panic("eDP pre-enable failed");
+				break;
+			}
+			case DISPLAYPORT: {
+				if(!kbl_dp_pre_enable(gpu, &gpu->connectors[i]))
+					lil_panic("DP pre-enable failed");
+				break;
+			}
+			case HDMI: {
+				if(!kbl_hdmi_pre_enable(gpu, &gpu->connectors[i]))
+					lil_log(INFO, "HDMI pre-enable for connector %lu failed\n", i);
+				break;
+			}
+			default: {
+				lil_log(WARNING, "unhandled pre-enable for type %u\n", gpu->connectors[i].type);
+				break;
+			}
+		}
+	}
+
+	for(size_t i = 0; i < gpu->num_connectors; i++) {
+		kbl_crtc_init(gpu, gpu->connectors[i].crtc);
+	}
 }
 
-static void kbl_crtc_init(LilGpu *gpu) {
-	size_t crtc_id = 0;
-
-	/* TODO: support more than one CRTC */
-	LilCrtc *crtc = gpu->connectors[0].crtc;
-    crtc->transcoder = TRANSCODER_EDP;
-    crtc->connector = &gpu->connectors[0];
-    crtc->num_planes = 1;
-    crtc->planes = lil_malloc(sizeof(LilPlane));
-	crtc->plane_id = 0;
-
-    for (int i = 0; i < crtc->num_planes; i++) {
-        crtc->planes[i].enabled = 0;
-        crtc->planes[i].pipe_id = 0;
-        crtc->planes[i].update_surface = lil_cfl_update_primary_surface;
-    }
-
-    crtc->pipe_id = 0;
-    crtc->commit_modeset = lil_kbl_commit_modeset;
-    crtc->shutdown = lil_cfl_shutdown;
-
+static void kbl_crtc_init(LilGpu *gpu, LilCrtc *crtc) {
 	enum LilPllId pll_id = 0;
 
-	uint32_t pll_choice = REG(DPLL_CTRL2) & DPLL_CTRL2_DDI_CLOCK_SELECT_MASK(gpu->ddi_id) >> DPLL_CTRL2_DDI_CLOCK_SELECT_SHIFT(gpu->ddi_id);
+	if((REG(SWF_24) & 0xFFFFFF) == 0) {
+		return;
+	}
+
+	uint32_t pll_choice = REG(DPLL_CTRL2) & DPLL_CTRL2_DDI_CLOCK_SELECT_MASK(crtc->connector->ddi_id) >> DPLL_CTRL2_DDI_CLOCK_SELECT_SHIFT(crtc->connector->ddi_id);
 
 	switch(pll_choice) {
 		case 0: {
@@ -133,5 +178,9 @@ static void kbl_crtc_init(LilGpu *gpu) {
 
 	crtc->pll_id = pll_id;
 
-	/* TODO: handle the VBT bdb block for fixed mode set */
+	const struct bdb_fixed_mode_set *f = (const void *) vbt_get_bdb_block(gpu->vbt_header, BDB_FIXED_MODE_SET);
+	if(f) {
+		/* TODO: handle the VBT bdb block for fixed mode set */
+		lil_assert(!f->feature_enable);
+	}
 }

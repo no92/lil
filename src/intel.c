@@ -37,9 +37,7 @@ void lil_init_gpu(LilGpu* ret, void* device) {
 
 		case 0x5916: {
 			uint8_t prog_if = lil_pci_readb(device, PCI_HDR_PROG_IF);
-			if(prog_if)
-				lil_panic("prog_if != 0 unsupported");
-
+			lil_assert(!prog_if);
 			lil_init_kbl_gpu(ret);
 			break;
 		}

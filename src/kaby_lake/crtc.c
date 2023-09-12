@@ -8,12 +8,13 @@ static uint8_t dp_link_rate_for_crtc(LilGpu *gpu, struct LilCrtc* crtc) {
 	uint8_t last_valid_index = 0;
 	uint32_t link_rate = 0;
 	uint32_t max_link_rate = 0;
+	LilEncoder *enc = crtc->connector->encoder;
 
-	for(uint8_t i = 0; i < gpu->supported_link_rates_len; i++) {
-		uint16_t entry = gpu->supported_link_rates[i];
+	for(uint8_t i = 0; i < enc->edp.supported_link_rates_len; i++) {
+		uint16_t entry = enc->edp.supported_link_rates[i];
 
 		if(entry == 8100 || entry == 10800 || (entry != 12150 && (entry == 1350 || entry == 16200 || entry == 21600 || entry == 27000))) {
-			link_rate = 8 * gpu->edp_lane_count * (1000 * entry / 5) / (10 * gpu->edp_color_depth);
+			link_rate = 8 * enc->edp.edp_lane_count * (1000 * entry / 5) / (10 * enc->edp.edp_color_depth);
 
 			if(link_rate >= crtc->current_mode.clock && link_rate < max_link_rate) {
 				last_valid_index = i;
@@ -27,6 +28,98 @@ static uint8_t dp_link_rate_for_crtc(LilGpu *gpu, struct LilCrtc* crtc) {
 
 static void kbl_unmask_vblank(LilGpu *gpu, LilCrtc *crtc) {
 	REG(IMR(crtc->pipe_id)) &= ~1;
+}
+
+static bool pll_available(LilGpu *gpu, uint32_t reg) {
+	uint32_t hdport_state = REG(HDPORT_STATE);
+	bool hdport_in_use = false;
+
+	/* check if HDPORT pre-emption is enabled to begin with */
+	if(!(hdport_state & HDPORT_STATE_ENABLED)) {
+		/* if not, we can just look for the enable flag */
+		return (REG(reg) & (1 << 31));
+	}
+
+	/* check if our DPLL has been preempted for HDPORT */
+	switch(reg) {
+		case LCPLL1_CTL: {
+			hdport_in_use = hdport_state & HDPORT_STATE_DPLL0_USED;
+			break;
+		}
+		case LCPLL2_CTL: {
+			hdport_in_use = hdport_state & HDPORT_STATE_DPLL1_USED;
+			break;
+		}
+		case WRPLL_CTL1: {
+			hdport_in_use = hdport_state & HDPORT_STATE_DPLL3_USED;
+			break;
+		}
+		case WRPLL_CTL2: {
+			hdport_in_use = hdport_state & HDPORT_STATE_DPLL2_USED;
+			break;
+		}
+		default: {
+			return (REG(reg) & (1 << 31));
+		}
+	}
+
+	/* used for HDPORT */
+	if(hdport_in_use)
+		return false;
+
+	return (REG(reg) & (1 << 31));
+}
+
+void pll_find(LilGpu *gpu, LilCrtc *crtc) {
+	if(crtc->connector->type == EDP && !crtc->connector->encoder->edp.edp_downspread) {
+		crtc->pll_id = LCPLL1;
+		return;
+	}
+
+	if(!pll_available(gpu, LCPLL2_CTL)) {
+		if(!pll_available(gpu, WRPLL_CTL2)) {
+			if(!pll_available(gpu, WRPLL_CTL1)) {
+				lil_panic("no PLL available");
+			} else {
+				crtc->pll_id = WRPLL1;
+				return;
+			}
+		} else {
+			crtc->pll_id = WRPLL2;
+			return;
+		}
+	} else {
+		crtc->pll_id = LCPLL2;
+		return;
+	}
+}
+
+void lil_kbl_crtc_dp_shutdown(LilGpu *gpu, LilCrtc *crtc) {
+	switch(crtc->connector->type) {
+		case EDP: {
+			kbl_plane_disable(gpu, crtc);
+			kbl_transcoder_disable(gpu, crtc);
+			kbl_transcoder_ddi_disable(gpu, crtc);
+			kbl_pipe_scaler_disable(gpu, crtc);
+			kbl_transcoder_clock_disable(gpu, crtc);
+
+			REG(DDI_BUF_CTL(crtc->connector->ddi_id)) &= ~0x10000;
+			REG(DDI_BUF_CTL(crtc->connector->ddi_id)) &= ~0x80000000;
+
+			kbl_ddi_balance_leg_set(gpu, crtc->connector->ddi_id, 0);
+
+			REG(DP_TP_CTL(crtc->connector->ddi_id)) &= ~0x10000;
+			lil_usleep(10);
+			// kbl_ddi_power_disable(gpu, crtc);
+			kbl_ddi_clock_disable(gpu, crtc);
+			// kbl_pll_disable(gpu, crtc);
+
+			break;
+		}
+		default: {
+			lil_panic("connector type unhandled");
+		}
+	}
 }
 
 void lil_kbl_commit_modeset(struct LilGpu* gpu, struct LilCrtc* crtc) {
@@ -44,14 +137,16 @@ void lil_kbl_commit_modeset(struct LilGpu* gpu, struct LilCrtc* crtc) {
 	if(crtc->current_mode.bpp == -1)
 		crtc->current_mode.bpp = enc->edp.edp_color_depth;
 
+	pll_find(gpu, crtc);
+
+	REG(SWF_24) = 8;
+
 	uint32_t stride = (crtc->current_mode.hactive * 4 + 63) >> 6;
 
-	REG(PRI_STRIDE(crtc->plane_id)) = stride;
-	REG(DSP_ADDR(crtc->plane_id)) = 0;
+	if(crtc->planes[0].enabled)
+		kbl_plane_enable(gpu, crtc, false);
 
-	kbl_plane_page_flip(gpu, crtc);
-
-	REG(PRI_CTL(crtc->plane_id)) = (REG(PRI_CTL(crtc->plane_id)) & 0xF0FFFFFF) | 0x4000000;
+	REG(PRI_CTL(crtc->pipe_id)) = (REG(PRI_CTL(crtc->pipe_id)) & 0xF0FFFFFF) | 0x4000000;
 
 	uint8_t link_rate_index = 0;
 
@@ -186,12 +281,6 @@ void lil_kbl_commit_modeset(struct LilGpu* gpu, struct LilCrtc* crtc) {
 	kbl_pipe_src_size_set(gpu, crtc);
 	kbl_plane_size_set(gpu, crtc);
 
-	REG(PS_CTRL_1(crtc->pipe_id)) |= 0x80800000;
-	REG(PS_CTRL_1(crtc->pipe_id)) &= 0xF1FFFFFF;
-	REG(PS_CTRL_1(crtc->pipe_id)) = (REG(PS_CTRL_1(crtc->pipe_id)) & 0xCFFFFFFF) | 0x10000000;
-
-	REG(PS_WIN_SZ_1(crtc->pipe_id)) = (crtc->current_mode.hactive << 16) | crtc->current_mode.vactive;
-
 	kbl_unmask_vblank(gpu, crtc);
 	kbl_transcoder_timings_configure(gpu, crtc);
 	kbl_transcoder_bpp_set(gpu, crtc, bpp);
@@ -204,7 +293,7 @@ void lil_kbl_commit_modeset(struct LilGpu* gpu, struct LilCrtc* crtc) {
 
 	kbl_transcoder_ddi_setup(gpu, crtc, max_lanes);
 	kbl_transcoder_enable(gpu, crtc);
-	kbl_plane_enable(gpu, crtc);
+	if(crtc->planes[0].enabled) kbl_plane_enable(gpu, crtc, true);
 
 	if(enc->edp.t8 > enc->edp.pwm_on_to_backlight_enable) {
 		lil_usleep(100 * (enc->edp.t8 - enc->edp.pwm_on_to_backlight_enable));

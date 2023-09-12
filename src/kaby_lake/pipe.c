@@ -33,3 +33,20 @@ void kbl_pipe_dithering_enable(LilGpu *gpu, LilCrtc *crtc, uint8_t bpp) {
 	if(bpp != 24)
 		REG(PIPE_MISC(crtc->pipe_id)) |= 0x10;
 }
+
+void kbl_pipe_scaler_disable(LilGpu *gpu, LilCrtc *crtc) {
+	REG(PS_WIN_POS_1(crtc->pipe_id)) = 0;
+	REG(PS_CTRL_1(crtc->pipe_id)) = 0;
+	REG(PS_WIN_SZ_1(crtc->pipe_id)) = 0;
+}
+
+void kbl_pipe_scaler_enable(LilGpu *gpu, LilCrtc *crtc) {
+	REG(PS_CTRL_1(crtc->pipe_id)) |= 0x80800000;
+	REG(PS_CTRL_1(crtc->pipe_id)) &= 0xF1FFFFFF;
+	REG(PS_CTRL_1(crtc->pipe_id)) = (REG(PS_CTRL_1(crtc->pipe_id)) & 0xCFFFFFFF) | 0x10000000;
+
+	/* TODO: handle interlaced modes? */
+
+	REG(PS_WIN_SZ_1(crtc->pipe_id)) = (crtc->current_mode.vactive - (2 * PS_WIN_POS_1((crtc->pipe_id) >> 16)))
+		| (crtc->current_mode.hactive - (2 * (PS_WIN_POS_1(crtc->pipe_id) & 0xFFFF)));
+}

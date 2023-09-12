@@ -40,9 +40,6 @@ void lil_init_ivb_gpu(LilGpu* ret, void* device) {
     lil_get_bar(device, 0, &base, &len);
     ret->mmio_start = (uintptr_t)lil_map(base, len);
 
-    ret->gtt_address = ret->mmio_start + (2 * 1024 * 1024);
-    ret->gtt_size = get_gtt_size(device);
-
     ret->gtt_address = ret->mmio_start + (len / 2); // Half of the BAR space is registers, half is GTT PTEs
     ret->gtt_size = get_gtt_size(device);
     ret->vmem_clear = lil_ivb_vmem_clear;
@@ -53,8 +50,9 @@ void lil_init_ivb_gpu(LilGpu* ret, void* device) {
 
     //TODO currently we only support LVDS
 
+    ret->max_connectors = 1;
     ret->num_connectors = 1;
-    ret->connectors = lil_malloc(sizeof(LilConnector) * ret->num_connectors);
+    ret->connectors = lil_malloc(sizeof(LilConnector) * ret->max_connectors);
 
     ret->connectors[0].id = 0;
     ret->connectors[0].type = LVDS;
@@ -68,7 +66,7 @@ void lil_init_ivb_gpu(LilGpu* ret, void* device) {
     ret->connectors[0].crtc->connector = &ret->connectors[0];
     ret->connectors[0].crtc->num_planes = 1;
     ret->connectors[0].crtc->planes = lil_malloc(sizeof(LilPlane));
-    for (int i = 0; i < ret->connectors[0].crtc->num_planes; i++) {
+    for (size_t i = 0; i < ret->connectors[0].crtc->num_planes; i++) {
         ret->connectors[0].crtc->planes[i].enabled = 0;
         ret->connectors[0].crtc->planes[i].pipe_id = 0;
         ret->connectors[0].crtc->planes[i].update_surface = lil_ivb_update_primary_surface;

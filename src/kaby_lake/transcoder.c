@@ -17,10 +17,32 @@ void kbl_transcoder_enable(LilGpu *gpu, LilCrtc *crtc) {
 	REG(trans(crtc->transcoder) + TRANS_CONF) |= (1 << 31);
 }
 
+void kbl_transcoder_disable(LilGpu *gpu, LilCrtc *crtc) {
+	// if(crtc->transcoder == TRANSCODER_EDP)
+		// return;
+
+	REG(trans(crtc->transcoder) + TRANS_CONF) &= ~(1 << 31);
+
+	wait_for_bit_unset(REG_PTR(trans(crtc->transcoder) + TRANS_CONF), (1 << 30), 21000, 1000);
+}
+
+void kbl_transcoder_ddi_disable(LilGpu *gpu, LilCrtc *crtc) {
+	REG(trans(crtc->transcoder) + TRANS_DDI_FUNC_CTL) &= 0xFFFFFFF;
+}
+
+void kbl_transcoder_clock_disable(LilGpu *gpu, LilCrtc *crtc) {
+	if(crtc->transcoder != TRANSCODER_EDP && crtc->connector->type != EDP) {
+		REG(TRANS_CLK_SEL(crtc->transcoder)) &= 0x1FFFFFFF;
+	}
+}
+
 void kbl_transcoder_configure_clock(LilGpu *gpu, LilCrtc *crtc) {
 	uint32_t val = 0;
 
-	switch(gpu->ddi_id) {
+	if(crtc->transcoder == TRANSCODER_EDP)
+		return;
+
+	switch(crtc->connector->ddi_id) {
 		case DDI_A: val = 0x00000000; break;
 		case DDI_B: val = 0x40000000; break;
 		case DDI_C: val = 0x60000000; break;
@@ -120,7 +142,7 @@ void kbl_transcoder_ddi_polarity_setup(LilGpu *gpu, LilCrtc *crtc) {
 void kbl_transcoder_ddi_setup(LilGpu *gpu, LilCrtc *crtc, uint32_t lanes) {
 	uint32_t val = 0;
 
-	switch(gpu->ddi_id) {
+	switch(crtc->connector->ddi_id) {
 		case DDI_A:
 			val = 0;
 			break;
@@ -159,6 +181,9 @@ void kbl_transcoder_ddi_setup(LilGpu *gpu, LilCrtc *crtc, uint32_t lanes) {
 	}
 
 	switch(crtc->connector->type) {
+		case HDMI:
+			REG(trans(crtc->transcoder) + TRANS_DDI_FUNC_CTL) = (REG(trans(crtc->transcoder) + TRANS_DDI_FUNC_CTL) & 0xF8FFFFFF);
+			break;
 		case EDP:
 			REG(trans(crtc->transcoder) + TRANS_DDI_FUNC_CTL) = (REG(trans(crtc->transcoder) + TRANS_DDI_FUNC_CTL) & 0xF8FFFFFF) | 0x2000000;
 			break;
@@ -167,6 +192,8 @@ void kbl_transcoder_ddi_setup(LilGpu *gpu, LilCrtc *crtc, uint32_t lanes) {
 	}
 
 	switch(lanes) {
+		case 0:
+			goto trans_ddi_enable;
 		case 1:
 			val = 0;
 			break;
@@ -181,7 +208,7 @@ void kbl_transcoder_ddi_setup(LilGpu *gpu, LilCrtc *crtc, uint32_t lanes) {
 	}
 
 	REG(trans(crtc->transcoder) + TRANS_DDI_FUNC_CTL) = (REG(trans(crtc->transcoder) + TRANS_DDI_FUNC_CTL) & 0xFFFFFFF1) | val;
-
+trans_ddi_enable:
 	REG(trans(crtc->transcoder) + TRANS_DDI_FUNC_CTL) |= (1 << 31);
 }
 

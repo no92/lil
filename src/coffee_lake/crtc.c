@@ -1,8 +1,21 @@
-#include "crtc.h"
-
 #include <lil/imports.h>
 
-#include "dp.h"
+#include "lil/intel.h"
+#include "src/coffee_lake/crtc.h"
+#include "src/coffee_lake/dp.h"
+#include "src/kaby_lake/kbl.h"
+
+#define REG_PTR(r) ((volatile uint32_t *) (gpu->mmio_start + (r)))
+
+static uint32_t trans(LilTranscoder id) {
+	switch(id) {
+		case TRANSCODER_A: return 0x60000;
+		case TRANSCODER_B: return 0x61000;
+		case TRANSCODER_C: return 0x62000;
+		case TRANSCODER_EDP: return 0x6F000;
+		default: lil_panic("invalid transcoder");
+	}
+}
 
 #define TRANS_HTOTAL(pipe) (0x60000 + ((pipe) * 0x1000))
 #define TRANS_HBLANK(pipe) (0x60004 + ((pipe) * 0x1000))
@@ -135,43 +148,37 @@ static void wait_mask (volatile uint32_t* reg, bool set, uint32_t mask) {
 }
 
 void lil_cfl_shutdown (struct LilGpu* gpu, struct LilCrtc* crtc) {
-    if(crtc->connector->type == DISPLAYPORT || crtc->connector->type == EDP) {
-        lil_cfl_dp_disable(gpu, crtc->connector);
-    } else {
-        lil_panic("Unknown connector type");
-    }
+	kbl_plane_disable(gpu, crtc);
 
-    volatile uint32_t* trans_conf = (uint32_t*)(gpu->mmio_start + TRANS_CONF(crtc->pipe_id));
+	/* TODO: perform the rest of the disable sequence */
+
+	// kbl_transcoder_disable(gpu, crtc);
+    volatile uint32_t* trans_conf = (uint32_t*)(gpu->mmio_start + TRANS_CONF(crtc->transcoder));
     set_mask(trans_conf, false, TRANS_CONF_ENABLE);
     wait_mask(trans_conf, false, TRANS_CONF_STATUS);
 
-    volatile uint32_t* ddi_buf_ctl = (uint32_t*)(gpu->mmio_start + DDI_BUF_CTL(crtc->pipe_id));
+    volatile uint32_t* ddi_buf_ctl = (uint32_t*)(gpu->mmio_start + DDI_BUF_CTL(crtc->connector->ddi_id));
     set_mask(ddi_buf_ctl, false, DDI_BUF_CTL_ENABLE | DDI_BUF_CTL_SYNC_ENABLE | DDI_BUF_CTL_SYNC_SELECT_MASK | DDI_BUF_CTL_PORT_MASK | DDI_BUF_CTL_MODE_SELECT_MASK);
 
     volatile uint32_t* trans_ddi_func_ctl;
     if(crtc->connector->type == EDP)
         trans_ddi_func_ctl = (uint32_t*)(gpu->mmio_start + TRANS_DDI_FUNC_CTL_EDP);
     else
-        trans_ddi_func_ctl = (uint32_t*)(gpu->mmio_start + TRANS_DDI_FUNC_CTL(crtc->pipe_id));
+        trans_ddi_func_ctl = (uint32_t*)(gpu->mmio_start + TRANS_DDI_FUNC_CTL(crtc->transcoder));
 
     set_mask(trans_ddi_func_ctl, false, TRANS_DDI_FUNC_CTL_ENABLE | TRANS_DDI_FUNC_SELECT_MASK);
 
-    // TODO: PIPE_A and B have 2 scalers, C only has 1
-    for(size_t i = 0; i < 2; i++) {
-        volatile uint32_t* pf_ctl = (uint32_t*)(gpu->mmio_start + PF_CTL(crtc->pipe_id, i));
-        volatile uint32_t* pf_win_sz = (uint32_t*)(gpu->mmio_start + PF_WIN_SZ(crtc->pipe_id, i));
-        volatile uint32_t* pf_win_pos = (uint32_t*)(gpu->mmio_start + PF_WIN_POS(crtc->pipe_id, i));
-
-        *pf_ctl = 0;
-        *pf_win_pos = 0;
-        *pf_win_sz = 0;
-    }
+	kbl_pipe_scaler_disable(gpu, crtc);
 
     if(crtc->connector->type == DISPLAYPORT || crtc->connector->type == EDP) {
         lil_cfl_dp_post_disable(gpu, crtc->connector);
     } else {
         lil_panic("Unknown connector type");
     }
+
+	kbl_ddi_clock_disable(gpu, crtc);
+
+	crtc->pll_id = INVALID_PLL;
 }
 
 
@@ -190,14 +197,14 @@ void lil_cfl_commit_modeset (struct LilGpu* gpu, struct LilCrtc* crtc) {
     }
 
     LilModeInfo mode = crtc->current_mode;
-    LilDpMnValues mn = lil_cfl_dp_calculate_mn(gpu, &mode);
+    LilDpMnValues mn = lil_cfl_dp_calculate_mn(gpu, crtc->connector, &mode);
 
-    volatile uint32_t* htotal = (uint32_t*)(gpu->mmio_start + TRANS_HTOTAL(crtc->pipe_id));
-    volatile uint32_t* hblank = (uint32_t*)(gpu->mmio_start + TRANS_HBLANK(crtc->pipe_id));
-    volatile uint32_t* hsync = (uint32_t*)(gpu->mmio_start  + TRANS_HSYNC(crtc->pipe_id));
-    volatile uint32_t* vtotal = (uint32_t*)(gpu->mmio_start + TRANS_VTOTAL(crtc->pipe_id));
-    volatile uint32_t* vblank = (uint32_t*)(gpu->mmio_start + TRANS_VBLANK(crtc->pipe_id));
-    volatile uint32_t* vsync = (uint32_t*)(gpu->mmio_start  + TRANS_VSYNC(crtc->pipe_id));
+    volatile uint32_t* htotal = (uint32_t*)(gpu->mmio_start + TRANS_HTOTAL(crtc->transcoder));
+    volatile uint32_t* hblank = (uint32_t*)(gpu->mmio_start + TRANS_HBLANK(crtc->transcoder));
+    volatile uint32_t* hsync = (uint32_t*)(gpu->mmio_start  + TRANS_HSYNC(crtc->transcoder));
+    volatile uint32_t* vtotal = (uint32_t*)(gpu->mmio_start + TRANS_VTOTAL(crtc->transcoder));
+    volatile uint32_t* vblank = (uint32_t*)(gpu->mmio_start + TRANS_VBLANK(crtc->transcoder));
+    volatile uint32_t* vsync = (uint32_t*)(gpu->mmio_start  + TRANS_VSYNC(crtc->transcoder));
     *htotal = ((mode.htotal - 1) << 16) | (mode.hactive - 1);
     *hblank = ((mode.htotal - 1) << 16) | (mode.hactive - 1);
     *hsync = ((mode.hsyncEnd - 1) << 16) | (mode.hsyncStart - 1);
@@ -205,17 +212,17 @@ void lil_cfl_commit_modeset (struct LilGpu* gpu, struct LilCrtc* crtc) {
     *vblank = ((mode.vtotal - 1) << 16) | (mode.vactive - 1);
     *vsync = ((mode.vsyncEnd - 1) << 16) | (mode.vsyncStart - 1);
 
-    volatile uint32_t* pipe_m_1 = (uint32_t*)(gpu->mmio_start + TRANS_DATAM(crtc->pipe_id));
-    volatile uint32_t* pipe_n_1 = (uint32_t*)(gpu->mmio_start + TRANS_DATAN(crtc->pipe_id));
-    volatile uint32_t* pipe_link_m_1 = (uint32_t*)(gpu->mmio_start + TRANS_LINKM(crtc->pipe_id));
-    volatile uint32_t* pipe_link_n_1 = (uint32_t*)(gpu->mmio_start + TRANS_LINKN(crtc->pipe_id));
+    volatile uint32_t* pipe_m_1 = (uint32_t*)(gpu->mmio_start + TRANS_DATAM(crtc->transcoder));
+    volatile uint32_t* pipe_n_1 = (uint32_t*)(gpu->mmio_start + TRANS_DATAN(crtc->transcoder));
+    volatile uint32_t* pipe_link_m_1 = (uint32_t*)(gpu->mmio_start + TRANS_LINKM(crtc->transcoder));
+    volatile uint32_t* pipe_link_n_1 = (uint32_t*)(gpu->mmio_start + TRANS_LINKN(crtc->transcoder));
     *pipe_m_1 = (0b111111 << 25) | mn.data_m;
     *pipe_n_1 = mn.data_n;
 
     *pipe_link_m_1 = mn.link_m;
     *pipe_link_n_1 = mn.link_n;
 
-    volatile uint32_t* trans_ddi_func_ctl = (uint32_t*)(gpu->mmio_start + TRANS_DDI_FUNC_CTL(crtc->pipe_id));
+    volatile uint32_t* trans_ddi_func_ctl = (uint32_t*)(gpu->mmio_start + TRANS_DDI_FUNC_CTL(crtc->transcoder));
     if(crtc->connector->type == EDP)
         trans_ddi_func_ctl = (uint32_t*)(gpu->mmio_start + TRANS_DDI_FUNC_CTL_EDP);
 
@@ -224,13 +231,13 @@ void lil_cfl_commit_modeset (struct LilGpu* gpu, struct LilCrtc* crtc) {
     };
 
     uint8_t bpc_mode = bpc_modes[mode.bpc];
-    if(bpc_mode == -1)
+    if(bpc_mode == (uint8_t) -1)
         lil_panic("Unknown BPC mode");
 
     // TODO: Select DDI here, ignored for eDP
-    *trans_ddi_func_ctl = TRANS_DDI_FUNC_CTL_ENABLE | (TRANS_DDI_MODE_DP_SST << TRANS_DDI_MODE_SHIFT) | (bpc_mode << TRANS_DDI_BPC_SHIFT) | (3 << 16) | (((dp_aux_native_read(gpu, 2) & 0xF) - 1) << 1);
+    *trans_ddi_func_ctl = TRANS_DDI_FUNC_CTL_ENABLE | (TRANS_DDI_MODE_DP_SST << TRANS_DDI_MODE_SHIFT) | (bpc_mode << TRANS_DDI_BPC_SHIFT) | (3 << 16) | (((dp_aux_native_read(gpu, crtc->connector, 2) & 0xF) - 1) << 1);
 
-    volatile uint32_t* trans_conf = (uint32_t*)(gpu->mmio_start + TRANS_CONF(crtc->pipe_id));
+    volatile uint32_t* trans_conf = (uint32_t*)(gpu->mmio_start + TRANS_CONF(crtc->transcoder));
     if(crtc->connector->type == EDP)
         trans_conf = (uint32_t*)(gpu->mmio_start + TRANS_CONF_EDP);
 
