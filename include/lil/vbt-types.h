@@ -97,6 +97,7 @@ struct child_device {
 	uint16_t device_type;
 #define DEVICE_TYPE_HDMI 0x60D2
 #define DEVICE_TYPE_DP_DUAL_MODE 0x60D6
+#define DEVICE_TYPE_DP 0x68C6
 
 #define DEVICE_TYPE_CLASS_EXTENSION 15
 #define DEVICE_TYPE_POWER_MANAGEMENT 14

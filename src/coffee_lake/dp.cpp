@@ -335,6 +335,8 @@ bool dp_dual_mode_read(LilGpu *gpu, LilConnector *con, uint8_t offset, void *buf
 }
 
 bool lil_cfl_dp_is_connected (struct LilGpu* gpu, struct LilConnector* connector) {
+    return true;
+    
 	if(connector->ddi_id == DDI_A) {
 		return REG(DDI_BUF_CTL(DDI_A)) & DDI_BUF_CTL_DISPLAY_DETECTED;
 	}

@@ -2,6 +2,7 @@
 
 enum LilPchGen {
 	INVALID_PCH_GEN,
+	NO_PCH,
 	WPT,
 	LPT,
 	LPT_LP,

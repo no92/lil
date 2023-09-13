@@ -21,7 +21,6 @@ const struct vbt_header *vbt_locate(LilGpu *gpu) {
 	}
 
 	lil_log(VERBOSE, "ACPI OpRegion %u.%u.%u\n", opregion->over.major, opregion->over.minor, opregion->over.revision);
-
 	struct opregion_asle *asle = NULL;
 
 	if(opregion->mbox & MBOX_ASLE) {
@@ -30,15 +29,18 @@ const struct vbt_header *vbt_locate(LilGpu *gpu) {
 
 	if(opregion->over.major >= 2 && asle && asle->rvda && asle->rvds) {
 		uint64_t rvda = asle->rvda;
+		lil_log(VERBOSE, "Raw RVDA in asle->rvda: 0x%lx\n", asle->rvda);
 
 		/* OpRegion v2.1+: rvda is an unsigned relative offset from the OpRegion base address */
 		if(opregion->over.major > 2 || opregion->over.minor >= 1) {
 			if(rvda < OPREGION_SIZE) {
-				lil_log(WARNING, "VBT base shouldn't be within OpRegion, but it is!");
+				lil_log(WARNING, "VBT base shouldn't be within OpRegion, but it is!\n");
 			}
 
-			rvda += (uintptr_t) opregion;
-		}
+			rvda += asls_phys;
+		} 
+
+		lil_log(INFO, "VBT RVDA: 0x%lx\n", rvda);
 
 		/* OpRegion 2.0: rvda is a physical address */
 		void *vbt = lil_map(rvda, asle->rvds);
@@ -124,11 +126,13 @@ static enum LilAuxChannel vbt_parse_aux_channel(uint8_t aux_ch) {
 }
 
 void vbt_setup_children(LilGpu *gpu) {
+	lil_log(VERBOSE, "vbt_setup_children: CALLED\n");
 	size_t con_id = 0;
 
 	const struct bdb_driver_features *driver_features = (void *) vbt_get_bdb_block(gpu->vbt_header, BDB_DRIVER_FEATURES);
 	const struct bdb_general_definitions *general_defs = (void *) vbt_get_bdb_block(gpu->vbt_header, BDB_GENERAL_DEFINITIONS);
 
+/*
 	if(driver_features->lvds_config != LVDS_CONFIG_NONE) {
 		struct child_device *dev = (void *) &general_defs->child_dev;
 		LilConnector *con = &gpu->connectors[0];
@@ -169,17 +173,59 @@ void vbt_setup_children(LilGpu *gpu) {
 
 		con_id++;
 	}
-
+*/
+	
 	size_t children = (general_defs->header.size - sizeof(*general_defs) + sizeof(struct bdb_block_header)) / general_defs->child_dev_size;
+
+	lil_log(VERBOSE, "vbt_setup_children: children=%lu\n", children);
 
 	for(size_t child = con_id; child < 8; child++) {
 		struct child_device *dev = (void *) ((uintptr_t) &general_defs->child_dev + (child * general_defs->child_dev_size));
 		uint32_t device_type = dev->device_type;
 
+		lil_log(VERBOSE, "vbt_setup_children: child=%lu, device_type=%x\n", child, device_type);
+
 		switch(device_type) {
 			case 0: {
 				continue;
 			}
+			case DEVICE_TYPE_DP: {
+				LilConnector *con = &gpu->connectors[con_id];
+
+				con->id = vbt_handle_to_port(dev->handle);
+				con->type = DISPLAYPORT;
+				//con->type = HDMI;
+				con->ddi_id = vbt_dvo_to_ddi(dev->dvo_port);
+				con->aux_ch = vbt_parse_aux_channel(dev->aux_channel);
+
+				con->get_connector_info = lil_cfl_dp_get_connector_info;
+				con->is_connected = lil_cfl_dp_is_connected;
+
+				con->encoder = lil_malloc(sizeof(LilEncoder));
+
+				con->crtc = lil_malloc(sizeof(LilCrtc));
+				con->crtc->connector = con;
+
+				con->crtc->pipe_id = 1;
+				con->crtc->transcoder = con->crtc->pipe_id;
+				con->crtc->commit_modeset = lil_kbl_commit_modeset;
+				con->crtc->shutdown = lil_kbl_crtc_dp_shutdown;
+
+				con->crtc->num_planes = 1;
+				con->crtc->planes = lil_malloc(sizeof(LilPlane));
+				for(size_t i = 0; i < con->crtc->num_planes; i++) {
+					con->crtc->planes[i].enabled = true;
+					con->crtc->planes[i].pipe_id = con->crtc->pipe_id;
+					con->crtc->planes[i].update_surface = lil_cfl_update_primary_surface;
+				}
+
+				kbl_encoder_dp_init(gpu, con->encoder, dev);
+				//kbl_encoder_hdmi_init(gpu, con->encoder, dev);
+
+				con_id++;
+				break;
+			}
+
 			case DEVICE_TYPE_DP_DUAL_MODE: {
 				LilConnector *con = &gpu->connectors[con_id];
 

@@ -31,6 +31,17 @@ void lil_init_kbl_gpu(LilGpu* ret) {
 		}
 	}
 
+	switch(ret->subgen) {
+		case SUBGEN_GEMINI_LAKE: {
+			lil_log(VERBOSE, "\tGPU subgen: Gemini Lake\n");
+			break;
+		}
+		case SUBGEN_NONE:
+		default: {
+			break;
+		}
+	}
+
 	switch(ret->variant) {
 		case H: {
 			lil_log(VERBOSE, "\tGPU variant: H\n");

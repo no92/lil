@@ -58,6 +58,7 @@ void lil_kbl_setup(LilGpu *gpu) {
 
 	/* determine the PCH generation */
 	kbl_pch_get_gen(gpu);
+	lil_assert(gpu->pch_gen != INVALID_PCH_GEN);
 	if(gpu->pch_gen == LPT) {
 		/* LPT has this meme where apparently the reference clock is 125 MHz */
 		gpu->ref_clock_freq = 125;
@@ -65,7 +66,8 @@ void lil_kbl_setup(LilGpu *gpu) {
 		gpu->ref_clock_freq = 24;
 	}
 
-	lil_log(VERBOSE, "\tPCH gen %u\n", gpu->pch_gen);
+	if(gpu->pch_gen != NO_PCH)
+		lil_log(VERBOSE, "\tPCH gen %u\n", gpu->pch_gen);
 
 	/* read the `GMCH Graphics Control` register */
 	uint8_t graphics_mode_select = lil_pci_readb(gpu->dev, 0x51);
@@ -122,7 +124,7 @@ void lil_kbl_setup(LilGpu *gpu) {
 			}
 			case DISPLAYPORT: {
 				if(!kbl_dp_pre_enable(gpu, &gpu->connectors[i]))
-					lil_panic("DP pre-enable failed");
+					lil_log(INFO, "DP pre-enable for connector %lu failed\n", i);
 				break;
 			}
 			case HDMI: {

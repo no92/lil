@@ -137,6 +137,12 @@ typedef struct LilEncoderDp {
 	bool vbios_hotplug_support;
 
 	uint8_t aux_ch;
+	uint8_t onboard_redriver_emph_vswing;
+	uint8_t dp_max_link_rate;
+	uint8_t dp_lane_count;
+	bool support_post_lt_adjust;
+	bool support_tps3_pattern;
+	bool support_enhanced_frame_caps;
 } LilEncoderDp;
 
 typedef struct LilEncoderHdmi {
@@ -224,6 +230,11 @@ typedef enum LilGpuGen {
     GEN_CFL = 9,
 } LilGpuGen;
 
+typedef enum LilGpuSubGen {
+	SUBGEN_NONE,
+	SUBGEN_GEMINI_LAKE,
+} LilGpuSubGen;
+
 typedef enum LilGpuVariant {
 	H,
 	ULT,
@@ -236,6 +247,7 @@ typedef struct LilGpu {
     LilConnector* connectors;
 
     LilGpuGen gen;
+    LilGpuSubGen subgen;
     LilGpuVariant variant;
 	enum LilPchGen pch_gen;
 
@@ -263,6 +275,8 @@ typedef struct LilGpu {
 	bool vco_8640;
 	uint32_t boot_cdclk_freq;
 	uint32_t cdclk_freq;
+
+	bool has_pch;
 
 	void *dev;
 	void *pch_dev;

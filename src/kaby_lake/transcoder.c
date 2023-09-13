@@ -184,6 +184,7 @@ void kbl_transcoder_ddi_setup(LilGpu *gpu, LilCrtc *crtc, uint32_t lanes) {
 		case HDMI:
 			REG(trans(crtc->transcoder) + TRANS_DDI_FUNC_CTL) = (REG(trans(crtc->transcoder) + TRANS_DDI_FUNC_CTL) & 0xF8FFFFFF);
 			break;
+		case DISPLAYPORT:
 		case EDP:
 			REG(trans(crtc->transcoder) + TRANS_DDI_FUNC_CTL) = (REG(trans(crtc->transcoder) + TRANS_DDI_FUNC_CTL) & 0xF8FFFFFF) | 0x2000000;
 			break;

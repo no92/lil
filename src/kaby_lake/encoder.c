@@ -118,6 +118,9 @@ void kbl_encoder_dp_init(LilGpu *gpu, LilEncoder *enc, struct child_device *dev)
 	const struct bdb_general_definitions *general_defs = (void *) vbt_get_bdb_block(gpu->vbt_header, BDB_GENERAL_DEFINITIONS);
 
 	enc->dp.aux_ch = dev->aux_channel;
+	enc->dp.onboard_redriver_emph_vswing = dev->onboard_redriver & 0x3f;
+	enc->dp.dp_max_link_rate = 0;
+	enc->dp.dp_lane_count = 0;
 }
 
 void kbl_encoder_hdmi_init(LilGpu *gpu, LilEncoder *enc, struct child_device *dev) {

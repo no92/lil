@@ -1,6 +1,7 @@
 project('lil', ['c', 'cpp'], default_options: ['warning_level=2'])
 
 add_project_arguments(['-Wno-unused-function', '-Wno-unused-variable', '-Wno-unused-parameter', '-Wimplicit-fallthrough'], language: ['c', 'cpp'])
+add_project_arguments(['-Werror=incompatible-pointer-types'], language: ['c'])
 add_project_arguments(['-std=gnu++2b'], language: ['cpp'])
 
 c_std = 'gnu2x'
@@ -40,6 +41,7 @@ sources = files(
     'src/kaby_lake/pcode.c',
     'src/kaby_lake/pipe.c',
     'src/kaby_lake/plane.c',
+    'src/kaby_lake/pll.c',
     'src/kaby_lake/setup.c',
     'src/kaby_lake/transcoder.c',
 

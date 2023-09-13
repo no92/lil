@@ -66,4 +66,6 @@ void kbl_pch_get_gen(LilGpu *gpu) {
 		gpu->pch_gen = KBP;
 	else if(in_pciid_list(devid, WPT_PCIIDS, sizeof(WPT_PCIIDS)))
 		gpu->pch_gen = WPT;
+	else
+		gpu->pch_gen = NO_PCH;
 }

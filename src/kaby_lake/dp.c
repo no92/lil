@@ -122,6 +122,7 @@ bool kbl_dp_pre_enable(LilGpu *gpu, LilConnector *con) {
 	}
 
 	if(ddi_in_use_by_hdport(gpu, con->ddi_id)) {
+		lil_log(ERROR, "kbl_dp_pre_enable: failing because ddi_in_use_by_hdport\n");
 		return false;
 	}
 
@@ -147,13 +148,15 @@ bool kbl_dp_pre_enable(LilGpu *gpu, LilConnector *con) {
 				break;
 		}
 
-		if(sfuse_strap_mask && (REG(SFUSE_STRAP) & sfuse_strap_mask) == 0) {
+		if(gpu->pch_gen != NO_PCH && sfuse_strap_mask && (REG(SFUSE_STRAP) & sfuse_strap_mask) == 0) {
+			lil_log(ERROR, "kbl_dp_pre_enable: failing because sfuse_strap_mask && (REG(SFUSE_STRAP) & sfuse_strap_mask) == 0\n");
 			return false;
 		}
 
-		bool init = unknown_init(gpu, con->crtc);
+		// bool init = unknown_init(gpu, con->crtc);
 
-		if(!hdmi_id_present_on_ddc(gpu, con->crtc) || init) {
+		//if(!hdmi_id_present_on_ddc(gpu, con->crtc) || init) {
+		if(true) {
 			dp_aux_native_write(gpu, con, SET_POWER, 1);
 			uint8_t rev = dp_aux_native_read(gpu, con, DPCD_REV);
 
@@ -161,5 +164,19 @@ bool kbl_dp_pre_enable(LilGpu *gpu, LilConnector *con) {
 		}
 	}
 
+	// Read various display port parameters
+	enc->dp.dp_max_link_rate = dp_aux_native_read(gpu, con, MAX_LINK_RATE);
+	uint8_t raw_max_lane_count = dp_aux_native_read(gpu, con, MAX_LANE_COUNT);
+	enc->dp.dp_lane_count = raw_max_lane_count & 0x1F;
+	enc->dp.support_post_lt_adjust = raw_max_lane_count & (1 << 5);
+	enc->dp.support_tps3_pattern = raw_max_lane_count & (1 << 6);
+	enc->dp.support_enhanced_frame_caps = raw_max_lane_count & (1 << 7);
+	lil_log(VERBOSE, "DPCD Info:\n");
+	lil_log(VERBOSE, "\tmax_link_rate: %i\n", enc->dp.dp_max_link_rate);
+	lil_log(VERBOSE, "\tlane_count: %i\n", enc->dp.dp_lane_count);
+	lil_log(VERBOSE, "\tsupport_post_lt_adjust: %s\n", enc->dp.support_post_lt_adjust ? "yes" : "no");
+	lil_log(VERBOSE, "\tsupport_tps3_pattern: %s\n", enc->dp.support_tps3_pattern ? "yes" : "no");
+	lil_log(VERBOSE, "\tsupport_enhanced_frame_caps: %s\n", enc->dp.support_enhanced_frame_caps ? "yes" : "no");
+	
 	return true;
 }

@@ -70,3 +70,4 @@ void lil_kbl_hdmi_commit_modeset(LilGpu *gpu, LilCrtc *crtc);
 void hdmi_pll_enable_sequence(LilGpu *gpu, LilCrtc *crtc);
 
 void pll_find(LilGpu *gpu, LilCrtc *crtc);
+void kbl_pll_disable(LilGpu *gpu, LilConnector *con);

@@ -317,7 +317,7 @@ void kbl_dpll_ctrl_enable(LilGpu *gpu, LilCrtc *crtc, uint32_t link_rate) {
 
 	switch(crtc->pll_id) {
 		case LCPLL1: {
-			lil_assert(crtc->connector->type == EDP);
+			lil_assert(crtc->connector->type == EDP || crtc->connector->type == DISPLAYPORT);
 			set_dpll_ctrl = (2 * dpll_link_rate) | 1;
 			REG(LCPLL1_CTL) &= ~(1 << 31);
 			dpll_ctrl_val = REG(DPLL_CTRL1) & 0xFFFFFFF0;
@@ -326,8 +326,9 @@ void kbl_dpll_ctrl_enable(LilGpu *gpu, LilCrtc *crtc, uint32_t link_rate) {
 		case LCPLL2: {
 			uint32_t dpll1_flags = 0x40;
 			lil_log(VERBOSE, "configuring LCPLL2\n");
-			if(crtc->connector->type != EDP) {
-				lil_assert(crtc->connector->type == HDMI);
+			//if(crtc->connector->type != EDP ) {
+			//	lil_assert(crtc->connector->type == HDMI);
+			if(crtc->connector->type == HDMI) {
 				lil_log(VERBOSE, "\tfor HDMI\n");
 				set_dpll_ctrl = dpll1_flags | 0x800;
 				dpll_ctrl_val = (REG(DPLL_CTRL1) & 0xFFFFF3BF);

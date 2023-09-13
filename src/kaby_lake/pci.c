@@ -11,17 +11,21 @@ static uint16_t KABY_LAKE_IDS[11] = { 0x5902, 0x5912, 0x5917, 0x5908, 0x590A, 0x
 static uint16_t KABY_LAKE_ULT_IDS[8] = { 0x5906, 0x5916, 0x5926, 0x5913, 0x5923, 0x5921, 0x5927, 0 };
 static uint16_t KABY_LAKE_ULX_IDS[4] = { 0x5915, 0x590E, 0x591E, 0 };
 
+static uint16_t GEMINI_LAKE_ULX_IDS[3] = { 0x3184, 0x3185, 0 };
+
 static struct variant_desc {
 	uint16_t *id_list;
 	enum LilGpuGen gen;
+	enum LilGpuSubGen subgen;
 	enum LilGpuVariant variant;
 } variants[] = {
-	{ SKYLAKE_IDS, GEN_SKL, H },
-	{ SKYLAKE_ULT_IDS, GEN_SKL, ULT },
-	{ SKYLAKE_ULX_IDS, GEN_SKL, ULX },
-	{ KABY_LAKE_IDS, GEN_KBL, H },
-	{ KABY_LAKE_ULT_IDS, GEN_KBL, ULT },
-	{ KABY_LAKE_ULX_IDS, GEN_KBL, ULX },
+	{ SKYLAKE_IDS, GEN_SKL, SUBGEN_NONE, H },
+	{ SKYLAKE_ULT_IDS, GEN_SKL, SUBGEN_NONE, ULT },
+	{ SKYLAKE_ULX_IDS, GEN_SKL, SUBGEN_NONE, ULX },
+	{ KABY_LAKE_IDS, GEN_KBL, SUBGEN_NONE, H },
+	{ KABY_LAKE_ULT_IDS, GEN_KBL, SUBGEN_NONE, ULT },
+	{ KABY_LAKE_ULX_IDS, GEN_KBL, SUBGEN_NONE, ULX },
+	{ GEMINI_LAKE_ULX_IDS, GEN_KBL, SUBGEN_GEMINI_LAKE, ULX },
 };
 
 void lil_kbl_pci_detect(LilGpu *gpu) {
@@ -33,6 +37,7 @@ void lil_kbl_pci_detect(LilGpu *gpu) {
 		for(size_t j = 0; desc->id_list[j]; j++) {
 			if(desc->id_list[j] == dev_id) {
 				gpu->gen = desc->gen;
+				gpu->subgen = desc->subgen;
 				gpu->variant = desc->variant;
 			}
 		}
