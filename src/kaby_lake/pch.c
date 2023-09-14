@@ -2,7 +2,7 @@
 #include <lil/intel.h>
 #include <lil/pch.h>
 
-#include "src/kaby_lake/pch.h"
+#include "src/kaby_lake/inc/pch.h"
 
 static uint16_t LPT_PCIIDS[] = {
 	0x8C40, 0x8C41, 0x8C42, 0x8C43, 0x8C44, 0x8C45, 0x8C46, 0x8C47,

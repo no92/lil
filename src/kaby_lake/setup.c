@@ -6,11 +6,9 @@
 #include "lil/vbt-types.h"
 #include "src/pci.h"
 #include "src/regs.h"
-#include "src/coffee_lake/crtc.h"
-#include "src/coffee_lake/plane.h"
-#include "src/kaby_lake/gtt.h"
-#include "src/kaby_lake/kbl.h"
-#include "src/kaby_lake/pch.h"
+#include "src/kaby_lake/inc/gtt.h"
+#include "src/kaby_lake/inc/kbl.h"
+#include "src/kaby_lake/inc/pch.h"
 
 static struct {
 	uint8_t select;

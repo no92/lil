@@ -1,9 +1,9 @@
-#include "../coffee_lake/dp.h"
-#include "../regs.h"
+#include <lil/imports.h>
+#include <lil/intel.h>
 
-#include "kbl.h"
-#include "lil/imports.h"
-#include "lil/intel.h"
+#include "src/kaby_lake/inc/kbl.h"
+#include "src/kaby_lake/inc/dpcd.h"
+#include "src/regs.h"
 
 static bool kbl_dp_training_pattern_1_set(LilGpu *gpu, LilCrtc *crtc, uint32_t lanes, uint32_t aux_training_interval, uint16_t *adjust_req_out);
 static bool kbl_dp_training_pattern_2_set(LilGpu *gpu, LilCrtc *crtc, uint32_t lanes, uint32_t aux_training_interval, uint16_t *adjust_req_out);
@@ -45,7 +45,14 @@ bool kbl_edp_link_training(LilGpu *gpu, LilCrtc *crtc, uint32_t max_link_rate, u
 		return false;
 	}
 
-	bool tps3_supported = !!(lane_count & 0x40);
+	bool tps3_supported;
+
+	// Displayport sends a TPS3 supported bit over DPCD.
+	if(con->type == DISPLAYPORT) {
+		tps3_supported = con->encoder->dp.support_tps3_pattern;
+	} else {
+		tps3_supported = !!(lane_count & 0x40);
+	}
 	bool done = false;
 
 	while(1) {
@@ -62,6 +69,7 @@ bool kbl_edp_link_training(LilGpu *gpu, LilCrtc *crtc, uint32_t max_link_rate, u
 		training_pattern_set &= 0xDC;
 		dp_aux_native_write(gpu, con, TRAINING_PATTERN_SET, training_pattern_set);
 
+		// TODO(CLEAN;BIT;UNCLEAR_ACTIONS)
 		REG(DP_TP_CTL(con->ddi_id)) = (REG(DP_TP_CTL(con->ddi_id)) & 0xFFFFF8FF) | 0x200;
 		lil_usleep(1000);
 

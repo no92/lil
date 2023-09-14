@@ -2,12 +2,15 @@
 #include <lil/imports.h>
 #include <lil/vbt.h>
 
-#include "src/coffee_lake/crtc.h"
-#include "src/coffee_lake/dp.h"
-#include "src/coffee_lake/plane.h"
-#include "src/kaby_lake/kbl.h"
+#include "src/kaby_lake/inc/plane.h"
+#include "src/kaby_lake/inc/dp.h"
+#include "src/kaby_lake/inc/kbl.h"
 #include "src/pci.h"
 #include "src/vbt/opregion.h"
+
+//
+// TODO: vbt parsing should be generation independent
+//
 
 const struct vbt_header *vbt_locate(LilGpu *gpu) {
 	uint32_t asls_phys = lil_pci_readd(gpu->dev, PCI_ASLS);
@@ -31,8 +34,8 @@ const struct vbt_header *vbt_locate(LilGpu *gpu) {
 		uint64_t rvda = asle->rvda;
 		lil_log(VERBOSE, "Raw RVDA in asle->rvda: 0x%lx\n", asle->rvda);
 
-		/* OpRegion v2.1+: rvda is an unsigned relative offset from the OpRegion base address */
-		if(opregion->over.major > 2 || opregion->over.minor >= 1) {
+		// In OpRegion v2.1+, rvda was changed to a relative offset
+		if(opregion->over.major > 2 || (opregion->over.major == 2 && opregion->over.minor >= 1)) {
 			if(rvda < OPREGION_SIZE) {
 				lil_log(WARNING, "VBT base shouldn't be within OpRegion, but it is!\n");
 			}
@@ -162,7 +165,7 @@ void vbt_setup_children(LilGpu *gpu) {
 		for(size_t i = 0; i < con->crtc->num_planes; i++) {
 			con->crtc->planes[i].enabled = 0;
 			con->crtc->planes[i].pipe_id = 0;
-			con->crtc->planes[i].update_surface = lil_cfl_update_primary_surface;
+			con->crtc->planes[i].update_surface = lil_kbl_update_primary_surface;
 		}
 
 		con->crtc->pipe_id = 0;
@@ -194,12 +197,11 @@ void vbt_setup_children(LilGpu *gpu) {
 
 				con->id = vbt_handle_to_port(dev->handle);
 				con->type = DISPLAYPORT;
-				//con->type = HDMI;
 				con->ddi_id = vbt_dvo_to_ddi(dev->dvo_port);
 				con->aux_ch = vbt_parse_aux_channel(dev->aux_channel);
 
-				con->get_connector_info = lil_cfl_dp_get_connector_info;
-				con->is_connected = lil_cfl_dp_is_connected;
+				con->get_connector_info = lil_kbl_dp_get_connector_info;
+				con->is_connected = lil_kbl_dp_is_connected;
 
 				con->encoder = lil_malloc(sizeof(LilEncoder));
 
@@ -216,11 +218,10 @@ void vbt_setup_children(LilGpu *gpu) {
 				for(size_t i = 0; i < con->crtc->num_planes; i++) {
 					con->crtc->planes[i].enabled = true;
 					con->crtc->planes[i].pipe_id = con->crtc->pipe_id;
-					con->crtc->planes[i].update_surface = lil_cfl_update_primary_surface;
+					con->crtc->planes[i].update_surface = lil_kbl_update_primary_surface;
 				}
 
 				kbl_encoder_dp_init(gpu, con->encoder, dev);
-				//kbl_encoder_hdmi_init(gpu, con->encoder, dev);
 
 				con_id++;
 				break;
@@ -253,7 +254,7 @@ void vbt_setup_children(LilGpu *gpu) {
 				for(size_t i = 0; i < con->crtc->num_planes; i++) {
 					con->crtc->planes[i].enabled = true;
 					con->crtc->planes[i].pipe_id = con->crtc->pipe_id;
-					con->crtc->planes[i].update_surface = lil_cfl_update_primary_surface;
+					con->crtc->planes[i].update_surface = lil_kbl_update_primary_surface;
 				}
 
 				// kbl_encoder_dp_init(gpu, con->encoder, con_id);

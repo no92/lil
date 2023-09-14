@@ -9,6 +9,11 @@
 typedef uint32_t GpuAddr;
 struct LilGpu;
 
+typedef enum LilError {
+	LIL_SUCCESS,
+	LIL_TIMEOUT,
+} LilError;
+
 typedef enum LilConnectorType {
     HDMI,
     LVDS,

@@ -2,6 +2,7 @@
 #include <lil/intel.h>
 #include <lil/vbt.h>
 
+// TODO(CLEAN;UNCLEAR_ACTIONS)	needs commenting
 void kbl_encoder_edp_init(LilGpu *gpu, LilEncoder *enc) {
 	const struct bdb_lvds_options *lvds_options = (const struct bdb_lvds_options *) vbt_get_bdb_block(gpu->vbt_header, BDB_LVDS_OPTIONS);
 	const struct bdb_edp *edp = (const struct bdb_edp *) vbt_get_bdb_block(gpu->vbt_header, BDB_EDP);

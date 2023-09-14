@@ -1,8 +1,8 @@
 #include <lil/imports.h>
 #include <lil/intel.h>
 
-#include "src/kaby_lake/kbl.h"
-#include "src/kaby_lake/gtt.h"
+#include "src/kaby_lake/inc/kbl.h"
+#include "src/kaby_lake/inc/gtt.h"
 
 void lil_init_kbl_gpu(LilGpu* ret) {
 	ret->vmem_clear = lil_kbl_vmem_clear;
@@ -13,6 +13,7 @@ void lil_init_kbl_gpu(LilGpu* ret) {
 
 	lil_kbl_pci_detect(ret);
 
+	// TODO() we should probably use an array or something for this
 	switch(ret->gen) {
 		case GEN_SKL: {
 			lil_log(VERBOSE, "\tGPU gen: Skylake\n");

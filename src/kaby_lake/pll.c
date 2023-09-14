@@ -2,9 +2,11 @@
 #include <lil/intel.h>
 #include <stdint.h>
 
-#include "src/kaby_lake/kbl.h"
+#include "src/kaby_lake/inc/kbl.h"
 #include "src/regs.h"
 
+// TODO(CLEAN;BIT): this function needs to be cleaned up
+// 					specifically, we should be using enums or defines for this bit setting/clearing
 void kbl_pll_disable(LilGpu *gpu, LilConnector *con) {
 	uint8_t shift = 0;
 	uint32_t mask = 0;

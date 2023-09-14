@@ -2,10 +2,10 @@
 #include <lil/intel.h>
 #include <stdint.h>
 
-#include "src/coffee_lake/dp.h"
+#include "src/kaby_lake/inc/dpcd.h"
 #include "src/edid.h"
 #include "src/gmbus.h"
-#include "src/kaby_lake/kbl.h"
+#include "src/kaby_lake/inc/kbl.h"
 #include "src/regs.h"
 
 static bool ddi_in_use_by_hdport(LilGpu *gpu, enum LilDdiId ddi_id) {
@@ -91,6 +91,7 @@ bool kbl_hdmi_pre_enable(LilGpu *gpu, LilConnector *con) {
 				break;
 		}
 
+		// TODO(FUNC;NO_PCH)	this assumes a PCH is present
 		if((REG(SFUSE_STRAP) & sfuse_strap_mask) == 0)
 			return false;
 
@@ -174,6 +175,7 @@ static void kbl_unmask_vblank(LilGpu *gpu, LilCrtc *crtc) {
 	REG(IMR(crtc->pipe_id)) &= ~1;
 }
 
+// TODO(CLEAN;SEPERATE)	this should be in a header
 #define DIV_ROUND_CLOSEST(x, divisor)(			\
 {							\
 	typeof(x) __x = x;				\
@@ -186,6 +188,8 @@ static void kbl_unmask_vblank(LilGpu *gpu, LilCrtc *crtc) {
 }							\
 )
 
+// TODO(CLEAN;BIT): this function needs to be cleaned up
+// 					specifically, we should be using enums or defines for this bit setting/clearing
 void lil_kbl_hdmi_commit_modeset(LilGpu *gpu, LilCrtc *crtc) {
 	LilConnector *con = crtc->connector;
 
@@ -284,6 +288,7 @@ uint64_t dco_central_freq_list[3] = {
 	9600000000,
 };
 
+// TODO(CLEAN;UNCLEAR_ACTIONS)	what the fuck
 static bool dpll_find_dco_divider(uint8_t *candidate, uint8_t table_len, uint64_t afe_clock, uint8_t *dco_central_freq_index, uint64_t *dco_freq_dev, uint8_t *out_div) {
 	bool valid_dco_found = false;
 

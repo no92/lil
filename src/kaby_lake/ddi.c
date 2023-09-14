@@ -1,8 +1,8 @@
 #include <lil/imports.h>
 #include <lil/intel.h>
 
-#include "src/kaby_lake/ddi-translations.h"
-#include "src/kaby_lake/kbl.h"
+#include "src/kaby_lake/inc/ddi-translations.h"
+#include "src/kaby_lake/inc/kbl.h"
 #include "src/regs.h"
 
 bool kbl_ddi_buf_enabled(LilGpu *gpu, LilCrtc *crtc) {

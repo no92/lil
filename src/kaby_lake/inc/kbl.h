@@ -3,6 +3,10 @@
 #include <lil/intel.h>
 #include <lil/vbt-types.h>
 
+//
+// TODO(CLEAN;SEPARATE) this header file is just plain stupid
+//
+
 void lil_init_kbl_gpu(LilGpu *ret);
 
 void lil_kbl_setup(LilGpu *gpu);

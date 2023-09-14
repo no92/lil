@@ -1,7 +1,7 @@
 #include <lil/imports.h>
 
 #include "src/gtt.h"
-#include "src/ivy_bridge/gtt.h"
+#include "src/ivy_bridge/inc/gtt.h"
 
 void lil_ivb_vmem_clear(LilGpu* gpu) {
     for (size_t i = 0; i < (gpu->gtt_size >> 12); i++) {

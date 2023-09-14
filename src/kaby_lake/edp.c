@@ -1,8 +1,8 @@
 #include <lil/imports.h>
 #include <lil/intel.h>
 
-#include "src/coffee_lake/dp.h"
-#include "src/kaby_lake/kbl.h"
+#include "src/kaby_lake/inc/dpcd.h"
+#include "src/kaby_lake/inc/kbl.h"
 #include "src/regs.h"
 
 bool kbl_edp_aux_readable(LilGpu *gpu, LilConnector *con) {
@@ -43,6 +43,7 @@ bool kbl_edp_aux_readable(LilGpu *gpu, LilConnector *con) {
 	return true;
 }
 
+// TODO(CLEAN;UNCLEAR_ACTIONS;BIT)	needs commenting, relies on random masking and shifting
 bool kbl_edp_pre_enable(LilGpu *gpu, LilConnector *con) {
 	LilEncoder *enc = con->encoder;
 

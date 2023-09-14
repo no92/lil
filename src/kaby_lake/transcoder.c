@@ -1,6 +1,6 @@
 #include <lil/intel.h>
 
-#include "src/kaby_lake/kbl.h"
+#include "src/kaby_lake/inc/kbl.h"
 #include "src/regs.h"
 
 static uint32_t trans(LilTranscoder id) {

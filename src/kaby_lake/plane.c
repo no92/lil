@@ -1,7 +1,7 @@
 #include <lil/imports.h>
 
-#include "kbl.h"
-#include "../regs.h"
+#include "src/kaby_lake/inc/kbl.h"
+#include "src/regs.h"
 
 static void wait_for_vblank(LilGpu *gpu, LilCrtc *crtc) {
 	REG(IIR(crtc->pipe_id)) |= 1;
@@ -10,10 +10,18 @@ static void wait_for_vblank(LilGpu *gpu, LilCrtc *crtc) {
 		lil_log(WARNING, "timeout on wait_for_vblank\n");
 }
 
+bool lil_kbl_update_primary_surface(struct LilGpu* gpu, struct LilPlane* plane, GpuAddr surface_address, GpuAddr line_stride) {
+    volatile uint32_t* pri_surf = REG_PTR(PRI_SURFACE(plane->pipe_id));
+    *pri_surf = surface_address  & ~0xfff;
+    return true;
+}
+
 void kbl_plane_page_flip(LilGpu *gpu, LilCrtc *crtc) {
 	REG(PRI_SURFACE(crtc->pipe_id)) = REG(PRI_SURFACE(crtc->pipe_id));
 }
 
+// TODO(CLEAN;BIT): this function needs to be cleaned up
+// 					specifically, we should be using enums or defines for this bit setting/clearing
 void kbl_plane_enable(LilGpu *gpu, LilCrtc *crtc, bool vblank_wait) {
 	uint32_t htotal = crtc->current_mode.htotal;
 	uint32_t pixel_clock = crtc->current_mode.clock;
@@ -29,9 +37,10 @@ void kbl_plane_enable(LilGpu *gpu, LilCrtc *crtc, bool vblank_wait) {
 	uint32_t blocks = ((wm + 511) >> 9) + 1;
 
 	REG(PLANE_WM_1(crtc->pipe_id)) = blocks | ((lines | 0xFFFE0000) << 14);
+	// TODO(CLEAN): what is this?
 	// REG(PLANE_WM_1(crtc->pipe_id)) = 0x80000022;
 
-	REG(PRI_CTL(crtc->pipe_id)) |= (1 << 31) | (1 << 26);// | (1 << 20);
+	REG(PRI_CTL(crtc->pipe_id)) |= (1 << 31); // | (1 << 26) | (1 << 20);
 
 	kbl_plane_page_flip(gpu, crtc);
 
@@ -39,6 +48,8 @@ void kbl_plane_enable(LilGpu *gpu, LilCrtc *crtc, bool vblank_wait) {
 		wait_for_vblank(gpu, crtc);
 }
 
+// TODO(CLEAN;BIT): this function needs to be cleaned up
+// 					specifically, we should be using enums or defines for this bit setting/clearing
 void kbl_plane_disable(LilGpu *gpu, LilCrtc *crtc) {
 	REG(PRI_CTL(crtc->pipe_id)) &= ~(1 << 31);
 

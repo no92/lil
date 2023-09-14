@@ -2,7 +2,7 @@
 
 #include "src/gtt.h"
 #include "src/helpers.h"
-#include "src/kaby_lake/gtt.h"
+#include "src/kaby_lake/inc/gtt.h"
 
 // TODO: Servers can support up to 46-bits, but I don't see a way to determine when it's the case.
 #define GTT_HAW 39

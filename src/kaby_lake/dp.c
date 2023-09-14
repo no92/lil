@@ -1,8 +1,9 @@
 #include <lil/imports.h>
 #include <lil/intel.h>
 
-#include "src/coffee_lake/dp.h"
-#include "src/kaby_lake/kbl.h"
+#include "src/kaby_lake/inc/dpcd.h"
+#include "src/kaby_lake/inc/kbl.h"
+#include "src/edid.h"
 #include "src/regs.h"
 
 static bool ddi_in_use_by_hdport(LilGpu *gpu, enum LilDdiId ddi_id) {
@@ -179,4 +180,70 @@ bool kbl_dp_pre_enable(LilGpu *gpu, LilConnector *con) {
 	lil_log(VERBOSE, "\tsupport_enhanced_frame_caps: %s\n", enc->dp.support_enhanced_frame_caps ? "yes" : "no");
 	
 	return true;
+}
+
+bool lil_kbl_dp_is_connected (struct LilGpu* gpu, struct LilConnector* connector) {
+    return true;
+    
+	if(connector->ddi_id == DDI_A) {
+		return REG(DDI_BUF_CTL(DDI_A)) & DDI_BUF_CTL_DISPLAY_DETECTED;
+	}
+
+	uint32_t sfuse_mask = 0;
+	uint32_t sde_isr_mask = 0;
+
+	switch(connector->ddi_id) {
+		case DDI_B: {
+			sde_isr_mask = (1 << 4);
+			sfuse_mask = (1 << 2);
+			break;
+		}
+		case DDI_C: {
+			sde_isr_mask = (1 << 5);
+			sfuse_mask = (1 << 1);
+			break;
+		}
+		case DDI_D: {
+			sfuse_mask = (1 << 0);
+			break;
+		}
+		default: {
+			lil_panic("unhandled DDI id");
+		}
+	}
+
+	if((REG(SFUSE_STRAP) & sfuse_mask) == 0) {
+		return false;
+	}
+
+	return REG(SDEISR) & sde_isr_mask;
+}
+
+// TODO(SEPERATE;MAYBE) move this to dpcd.cpp? would mean not having to include edid in dpcd.h
+LilConnectorInfo lil_kbl_dp_get_connector_info(struct LilGpu* gpu, struct LilConnector* connector) {
+    (void)connector;
+    LilConnectorInfo ret = {};
+    LilModeInfo* info = (LilModeInfo *) lil_malloc(sizeof(LilModeInfo) * 4);
+
+    DisplayData edid = {};
+    dp_aux_read_edid(gpu, connector, &edid);
+
+    uint32_t edp_max_pixel_clock = 990 * gpu->boot_cdclk_freq;
+
+    int j = 0;
+    for(int i = 0; i < 4; i++) { // Maybe 4 Detailed Timings
+        if(edid.detailTimings[i].pixelClock == 0)
+            continue; // Not a timing descriptor
+
+        if(connector->type == EDP && edp_max_pixel_clock && (edid.detailTimings[i].pixelClock * 10) > edp_max_pixel_clock) {
+            lil_log(WARNING, "EDID: skipping detail timings %u: pixel clock (%u KHz) > max (%u KHz)\n", i, (edid.detailTimings[i].pixelClock * 10), edp_max_pixel_clock);
+            continue;
+        }
+
+        edid_timing_to_mode(&edid, edid.detailTimings[i], &info[j++]);
+    }
+
+    ret.modes = info;
+    ret.num_modes = j;
+    return ret;
 }

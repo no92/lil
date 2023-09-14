@@ -2,9 +2,8 @@
 #include <lil/imports.h>
 #include <lil/vbt.h>
 
-#include "src/coffee_lake/cfl.h"
-#include "src/ivy_bridge/ivb.h"
-#include "src/kaby_lake/kbl.h"
+#include "src/ivy_bridge/inc/ivb.h"
+#include "src/kaby_lake/inc/kbl.h"
 #include "src/pci.h"
 
 void lil_init_gpu(LilGpu* ret, void* device) {
@@ -46,11 +45,11 @@ void lil_init_gpu(LilGpu* ret, void* device) {
 			break;
 		}
 
-        case 0x3E9B:
-        case 0x5917: {
-            ret->gen = GEN_CFL;
-            lil_init_cfl_gpu(ret, device);
-            break;
-        }
+        //case 0x3E9B:
+        //case 0x5917: {
+        //    ret->gen = GEN_CFL;
+        //    lil_init_cfl_gpu(ret, device);
+        //    break;
+        //}
     }
 }

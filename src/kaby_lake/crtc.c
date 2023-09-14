@@ -1,8 +1,8 @@
 #include <lil/imports.h>
 #include <lil/intel.h>
 
-#include "src/coffee_lake/dp.h"
-#include "src/kaby_lake/kbl.h"
+#include "src/kaby_lake/inc/dpcd.h"
+#include "src/kaby_lake/inc/kbl.h"
 #include "src/regs.h"
 
 static uint8_t dp_link_rate_for_crtc(LilGpu *gpu, struct LilCrtc* crtc) {

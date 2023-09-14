@@ -2,6 +2,8 @@
 
 #include <lil/intel.h>
 
+#include "src/edid.h"
+
 enum DPCD_ADDRESSES {
 	DPCD_REV = 0x0,
 	MAX_LINK_RATE = 0x1,
@@ -28,31 +30,6 @@ enum DPCD_ADDRESSES {
 extern "C" {
 #endif
 
-typedef enum LilError {
-	Success,
-	Timeout,
-} LilError;
-
-void lil_cfl_dp_get_mode_info(LilGpu* gpu, LilModeInfo* out);
-
-bool lil_cfl_dp_is_connected(struct LilGpu* gpu, struct LilConnector* connector);
-LilConnectorInfo lil_cfl_dp_get_connector_info(struct LilGpu* gpu, struct LilConnector* connector);
-void lil_cfl_dp_set_state(struct LilGpu* gpu, struct LilConnector* connector, uint32_t state);
-uint32_t lil_cfl_dp_get_state(struct LilGpu* gpu, struct LilConnector* connector);
-
-void lil_cfl_dp_init(struct LilGpu* gpu, struct LilConnector* connector);
-
-void lil_cfl_dp_disable(struct LilGpu* gpu, struct LilConnector* connector);
-void lil_cfl_dp_post_disable(struct LilGpu* gpu, struct LilConnector* connector);
-
-void lil_cfl_dp_pre_enable(struct LilGpu* gpu, struct LilConnector* connector);
-
-typedef struct {
-    uint64_t link_m, link_n;
-    uint64_t data_m, data_n;
-} LilDpMnValues;
-LilDpMnValues lil_cfl_dp_calculate_mn(LilGpu* gpu, LilConnector *con, LilModeInfo* mode);
-
 uint8_t dp_aux_native_read(struct LilGpu* gpu, LilConnector *con, uint16_t addr);
 void dp_aux_native_readn(struct LilGpu* gpu, LilConnector *con, uint16_t addr, size_t n, void *buf);
 void dp_aux_native_write(struct LilGpu* gpu, LilConnector *con, uint16_t addr, uint8_t v);
@@ -60,6 +37,8 @@ void dp_aux_native_writen(struct LilGpu* gpu, LilConnector *con, uint16_t addr, 
 
 LilError dp_aux_i2c_read(struct LilGpu* gpu, LilConnector *con, uint16_t addr, uint8_t len, uint8_t* buf);
 LilError dp_aux_i2c_write(struct LilGpu* gpu, LilConnector *con,  uint16_t addr, uint8_t len, uint8_t* buf);
+
+void dp_aux_read_edid(struct LilGpu* gpu, LilConnector *con, DisplayData* buf);
 
 bool dp_dual_mode_read(LilGpu *gpu, LilConnector *con, uint8_t offset, void *buffer, size_t size);
 
