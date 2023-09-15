@@ -72,29 +72,31 @@ bool kbl_hdmi_pre_enable(LilGpu *gpu, LilConnector *con) {
 
 	if(!kbl_ddi_buf_enabled(gpu, con->crtc)) {
 		lil_log(INFO, "DDI %c not enabled, enabling\n", '0' + con->ddi_id);
-		uint32_t sfuse_strap_mask = 0;
+		
+		// Gemini Lake and Broxton do not have SFUSE_STRAP.
+		if(gpu->subgen != SUBGEN_GEMINI_LAKE) {
+			uint32_t sfuse_strap_mask = 0;
 
-		switch(con->ddi_id) {
-			case DDI_B: {
-				sfuse_strap_mask = 4;
-				break;
+			switch(con->ddi_id) {
+				case DDI_B: {
+					sfuse_strap_mask = 4;
+					break;
+				}
+				case DDI_C: {
+					sfuse_strap_mask = 2;
+					break;
+				}
+				case DDI_D: {
+					sfuse_strap_mask = 1;
+					break;
+				}
+				default:
+					break;
 			}
-			case DDI_C: {
-				sfuse_strap_mask = 2;
-				break;
-			}
-			case DDI_D: {
-				sfuse_strap_mask = 1;
-				break;
-			}
-			default:
-				break;
+
+			if((REG(SFUSE_STRAP) & sfuse_strap_mask) == 0)
+				return false;
 		}
-
-		// TODO(FUNC;NO_PCH)	this assumes a PCH is present
-		if((REG(SFUSE_STRAP) & sfuse_strap_mask) == 0)
-			return false;
-
 		uint32_t *trans_table = (void *) HDMI_DDI_TRANS_TABLE;
 
 		REG(DDI_BUF_TRANS(con->ddi_id)) = trans_table[2 * con->encoder->hdmi.hdmi_level_shift];

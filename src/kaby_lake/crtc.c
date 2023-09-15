@@ -258,6 +258,7 @@ void lil_kbl_commit_modeset(struct LilGpu* gpu, struct LilCrtc* crtc) {
 	if(!link_rate_mhz)
 		lil_panic("invalid link_rate_mhz == 0");
 
+	// TODO(REG;CORRECTNESS)	we should set the lane count in DDI_BUF_CTL_A
 	dp_aux_native_write(gpu, con, LANE_COUNT_SET, lanes);
 	// dp_aux_native_write(gpu, con, LINK_RATE_SET, enc->dp.dp_max_link_rate);
 

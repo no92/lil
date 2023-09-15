@@ -117,7 +117,7 @@ void kbl_encoder_dp_init(LilGpu *gpu, LilEncoder *enc, struct child_device *dev)
 	enc->dp.vbios_hotplug_support = general_features->vbios_hotplug_support;
 
 	const struct bdb_general_definitions *general_defs = (void *) vbt_get_bdb_block(gpu->vbt_header, BDB_GENERAL_DEFINITIONS);
-
+	enc->dp.ddc_pin = dev->ddc_pin;
 	enc->dp.aux_ch = dev->aux_channel;
 	enc->dp.onboard_redriver_emph_vswing = dev->onboard_redriver & 0x3f;
 	enc->dp.dp_max_link_rate = 0;
@@ -127,11 +127,7 @@ void kbl_encoder_dp_init(LilGpu *gpu, LilEncoder *enc, struct child_device *dev)
 void kbl_encoder_hdmi_init(LilGpu *gpu, LilEncoder *enc, struct child_device *dev) {
 	const struct bdb_general_definitions *general_defs = (void *) vbt_get_bdb_block(gpu->vbt_header, BDB_GENERAL_DEFINITIONS);
 
-	enc->hdmi.ddc_pin = dev->ddc_pin;
-	enc->hdmi.aux_ch = dev->aux_channel;
-
 	uint8_t iboost_level = 0;
-
 	switch(dev->hdmi_iboost_level) {
 		case 0:
 			iboost_level = 1;
@@ -145,6 +141,8 @@ void kbl_encoder_hdmi_init(LilGpu *gpu, LilEncoder *enc, struct child_device *de
 		default:
 			lil_panic("unhandled HDMI iboost level");
 	}
+	enc->hdmi.ddc_pin = dev->ddc_pin;
+	enc->hdmi.aux_ch = dev->aux_channel;
 	enc->hdmi.iboost_level = iboost_level;
 	enc->hdmi.iboost = dev->iboost;
 	enc->hdmi.hdmi_level_shift = dev->hdmi_level_shifter_value;

@@ -326,8 +326,6 @@ void kbl_dpll_ctrl_enable(LilGpu *gpu, LilCrtc *crtc, uint32_t link_rate) {
 		case LCPLL2: {
 			uint32_t dpll1_flags = 0x40;
 			lil_log(VERBOSE, "configuring LCPLL2\n");
-			//if(crtc->connector->type != EDP ) {
-			//	lil_assert(crtc->connector->type == HDMI);
 			if(crtc->connector->type == HDMI) {
 				lil_log(VERBOSE, "\tfor HDMI\n");
 				set_dpll_ctrl = dpll1_flags | 0x800;

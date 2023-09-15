@@ -3,6 +3,7 @@
 
 #include "src/kaby_lake/inc/dpcd.h"
 #include "src/kaby_lake/inc/kbl.h"
+#include "src/kaby_lake/inc/hpd.h"
 #include "src/edid.h"
 #include "src/regs.h"
 
@@ -31,53 +32,6 @@ static bool ddi_in_use_by_hdport(LilGpu *gpu, enum LilDdiId ddi_id) {
 	}
 
 	return (val & mask);
-}
-
-static void hpd_enable(LilGpu *gpu, LilCrtc *crtc) {
-	uint32_t shotplug_val = 0;
-
-	switch(crtc->connector->ddi_id) {
-		case DDI_A:
-			break;
-		case DDI_B: {
-			shotplug_val = REG(SHOTPLUG_CTL) | 0x10;
-			REG(SHOTPLUG_CTL) = shotplug_val;
-			break;
-		}
-		case DDI_C: {
-			shotplug_val = REG(SHOTPLUG_CTL) | 0x1000;
-			REG(SHOTPLUG_CTL) = shotplug_val;
-			break;
-		}
-		case DDI_D: {
-			shotplug_val = REG(SHOTPLUG_CTL) | 0x100000;
-			REG(SHOTPLUG_CTL) = shotplug_val;
-			break;
-		}
-		case DDI_E: {
-			REG(SHOTPLUG_CTL2) |= 0x10;
-			break;
-		}
-	}
-
-	if(!crtc->connector->encoder->dp.vbios_hotplug_support) {
-		return;
-	}
-
-	uint32_t sdeier_val = 0;
-
-	switch(crtc->connector->ddi_id) {
-		case DDI_B: {
-			REG(SDEIMR) &= ~0x200000;
-			sdeier_val = REG(SDEIER) | 0x200000;
-			break;
-		}
-		default: {
-			lil_panic("unhandled DDI in hpd_enable");
-		}
-	}
-
-	REG(SDEIER) = sdeier_val;
 }
 
 static bool hdmi_id_present_on_ddc(LilGpu *gpu, LilCrtc *crtc) {
@@ -128,36 +82,41 @@ bool kbl_dp_pre_enable(LilGpu *gpu, LilConnector *con) {
 	}
 
 	if(!kbl_ddi_buf_enabled(gpu, con->crtc)) {
-		hpd_enable(gpu, con->crtc);
+		kbl_hpd_enable(gpu, con->crtc);
 
-		uint32_t sfuse_strap_mask = 0;
-		switch(con->ddi_id) {
-			case DDI_B: {
-				sfuse_strap_mask = 4;
-				break;
+		// Gemini Lake and Broxton do not have SFUSE_STRAP.
+		if(gpu->subgen != SUBGEN_GEMINI_LAKE) {
+			uint32_t sfuse_strap_mask = 0;
+			switch(con->ddi_id) {
+				case DDI_B: {
+					sfuse_strap_mask = 4;
+					break;
+				}
+				case DDI_C: {
+					sfuse_strap_mask = 2;
+					break;
+				}
+				case DDI_D: {
+					sfuse_strap_mask = 1;
+					break;
+				}
+				case DDI_A:
+				case DDI_E:
+					break;
 			}
-			case DDI_C: {
-				sfuse_strap_mask = 2;
-				break;
+
+			if(sfuse_strap_mask && (REG(SFUSE_STRAP) & sfuse_strap_mask) == 0) {
+				lil_log(ERROR, "kbl_dp_pre_enable: failing because sfuse_strap_mask && (REG(SFUSE_STRAP) & sfuse_strap_mask) == 0\n");
+				return false;
 			}
-			case DDI_D: {
-				sfuse_strap_mask = 1;
-				break;
-			}
-			case DDI_A:
-			case DDI_E:
-				break;
 		}
+		
+		bool init = false; // TODO: implement unknown_init(gpu, con->crtc);
+		
+		bool hdmi_id_present = hdmi_id_present_on_ddc(gpu, con->crtc);
+		lil_log(DEBUG, "kbl_dp_pre_enable: init=%s, hdmi_id_present=%s\n", init ? "true" : "false", hdmi_id_present ? "true" : "false");
 
-		if(gpu->pch_gen != NO_PCH && sfuse_strap_mask && (REG(SFUSE_STRAP) & sfuse_strap_mask) == 0) {
-			lil_log(ERROR, "kbl_dp_pre_enable: failing because sfuse_strap_mask && (REG(SFUSE_STRAP) & sfuse_strap_mask) == 0\n");
-			return false;
-		}
-
-		// bool init = unknown_init(gpu, con->crtc);
-
-		//if(!hdmi_id_present_on_ddc(gpu, con->crtc) || init) {
-		if(true) {
+		if(!hdmi_id_present || init) {
 			dp_aux_native_write(gpu, con, SET_POWER, 1);
 			uint8_t rev = dp_aux_native_read(gpu, con, DPCD_REV);
 
@@ -183,8 +142,9 @@ bool kbl_dp_pre_enable(LilGpu *gpu, LilConnector *con) {
 }
 
 bool lil_kbl_dp_is_connected (struct LilGpu* gpu, struct LilConnector* connector) {
-    return true;
-    
+	return false;
+
+	// TODO(): not reliable, only valid on chip startup, also wrong on some generations for some reason 
 	if(connector->ddi_id == DDI_A) {
 		return REG(DDI_BUF_CTL(DDI_A)) & DDI_BUF_CTL_DISPLAY_DETECTED;
 	}

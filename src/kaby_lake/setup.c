@@ -101,6 +101,12 @@ void lil_kbl_setup(LilGpu *gpu) {
 	lil_kbl_vmem_clear(gpu);
 
 	/* TODO: on cold boot, perform the display init sequence */
+	// Disable every transcoder
+	for(LilTranscoder transcoder = TRANSCODER_A; transcoder <= TRANSCODER_C; transcoder++) {
+		kbl_transcoder_disable_by_id(gpu, transcoder);
+		kbl_transcoder_ddi_disable_by_id(gpu, transcoder);
+		kbl_transcoder_clock_disable_by_id(gpu, transcoder);
+	}
 
 	uint8_t dpll0_link_rate = (REG(DPLL_CTRL1) & DPLL_CTRL1_LINK_RATE_MASK(0)) >> 1;
 	gpu->vco_8640 = dpll0_link_rate == 4 || dpll0_link_rate == 5;

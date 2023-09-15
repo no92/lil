@@ -64,6 +64,8 @@ static bool gmbus2_wait_for_mask(LilGpu *gpu, LilConnector *con, uint32_t mask, 
 
 static uint8_t ddc_pin(LilConnector *con) {
 	switch(con->type) {
+		case DISPLAYPORT:
+			return con->encoder->dp.ddc_pin;
 		case HDMI:
 			return con->encoder->hdmi.ddc_pin;
 		case LVDS:

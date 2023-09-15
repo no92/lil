@@ -35,6 +35,7 @@ sources = files(
     'src/kaby_lake/encoder.c',
     'src/kaby_lake/gtt.c',
     'src/kaby_lake/hdmi.c',
+    'src/kaby_lake/hpd.c',
     'src/kaby_lake/kbl.c',
     'src/kaby_lake/link-training.c',
     'src/kaby_lake/pch.c',

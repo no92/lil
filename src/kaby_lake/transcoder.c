@@ -22,18 +22,38 @@ void kbl_transcoder_disable(LilGpu *gpu, LilCrtc *crtc) {
 		// return;
 
 	REG(trans(crtc->transcoder) + TRANS_CONF) &= ~(1 << 31);
-
 	wait_for_bit_unset(REG_PTR(trans(crtc->transcoder) + TRANS_CONF), (1 << 30), 21000, 1000);
+}
+
+void kbl_transcoder_disable_by_id(LilGpu *gpu, LilTranscoder transcoder) {
+	REG(trans(transcoder) + TRANS_CONF) &= ~(1 << 31);
+	wait_for_bit_unset(REG_PTR(trans(transcoder) + TRANS_CONF), (1 << 30), 21000, 1000);
 }
 
 void kbl_transcoder_ddi_disable(LilGpu *gpu, LilCrtc *crtc) {
 	REG(trans(crtc->transcoder) + TRANS_DDI_FUNC_CTL) &= 0xFFFFFFF;
+	if(gpu->subgen == SUBGEN_GEMINI_LAKE) {
+		// Quirk: delay for 100ms
+		lil_sleep(100);
+	}
+}
+
+void kbl_transcoder_ddi_disable_by_id(LilGpu *gpu, LilTranscoder transcoder) {
+	REG(trans(transcoder) + TRANS_DDI_FUNC_CTL) &= 0xFFFFFFF;
+	if(gpu->subgen == SUBGEN_GEMINI_LAKE) {
+		// Quirk: delay for 100ms
+		lil_sleep(100);
+	}
 }
 
 void kbl_transcoder_clock_disable(LilGpu *gpu, LilCrtc *crtc) {
 	if(crtc->transcoder != TRANSCODER_EDP && crtc->connector->type != EDP) {
 		REG(TRANS_CLK_SEL(crtc->transcoder)) &= 0x1FFFFFFF;
 	}
+}
+
+void kbl_transcoder_clock_disable_by_id(LilGpu *gpu, LilTranscoder transcoder) {
+	REG(TRANS_CLK_SEL(transcoder)) &= 0x1FFFFFFF;
 }
 
 void kbl_transcoder_configure_clock(LilGpu *gpu, LilCrtc *crtc) {

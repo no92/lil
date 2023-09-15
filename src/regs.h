@@ -91,6 +91,12 @@
 #define TRANS_MSA_MISC 0x410
 #define TRANS_CONF 0x10008
 
+#define DE_PORT_INTERRUPT_DDIA_HOTPLUG (1 << 3)
+#define DE_PORT_INTERRUPT_DDIB_HOTPLUG (1 << 4)
+#define DE_PORT_INTERRUPT_DDIC_HOTPLUG (1 << 5)
+#define DE_PORT_INTERRUPT_DDI_HOTPLUG_MASK (0b111 << 3)
+#define DE_PORT_INTERRUPT 0x44440
+
 #define PIPE_SRCSZ(pipe) (0x6001C + ((pipe) * 0x1000))
 
 // #define VIDEO_DIP_CTL(transcoder) (((transcoder) == TRANSCODER_EDP) ? 0x6F200 : (0xre60200 + ((transcoder) * 0x1000)))
@@ -190,7 +196,14 @@
 #define SDEIER 0xC400C
 
 #define SHOTPLUG_CTL 0xC4030
+#define HPD_FILTER_CNT 0xC4038
 #define SHOTPLUG_CTL2 0xC403C
+#define SHPD_PULSE_CNT_A 0xC404C
+#define SHPD_PULSE_CNT_B 0xC4034
+#define SHPD_PULSE_CNT_C 0xC4044
+#define SHPD_PULSE_CNT_D 0xC4048
+#define SHPD_PULSE_CNT_E 0xC4050
+
 
 #define GMBUS0 0xC5100
 #define GMBUS1 0xC5104

@@ -7,6 +7,10 @@
 // TODO(CLEAN;SEPARATE) this header file is just plain stupid
 //
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 void lil_init_kbl_gpu(LilGpu *ret);
 
 void lil_kbl_setup(LilGpu *gpu);
@@ -47,8 +51,11 @@ void kbl_plane_size_set(LilGpu *gpu, LilCrtc *crtc);
 
 void kbl_transcoder_enable(LilGpu *gpu, LilCrtc *crtc);
 void kbl_transcoder_disable(LilGpu *gpu, LilCrtc *crtc);
+void kbl_transcoder_disable_by_id(LilGpu *gpu, LilTranscoder transcoder);
 void kbl_transcoder_ddi_disable(LilGpu *gpu, LilCrtc *crtc);
+void kbl_transcoder_ddi_disable_by_id(LilGpu *gpu, LilTranscoder transcoder);
 void kbl_transcoder_clock_disable(LilGpu *gpu, LilCrtc *crtc);
+void kbl_transcoder_clock_disable_by_id(LilGpu *gpu, LilTranscoder transcoder);
 void kbl_transcoder_configure_clock(LilGpu *gpu, LilCrtc *crtc);
 void kbl_transcoder_timings_configure(LilGpu *gpu, LilCrtc *crtc);
 void kbl_transcoder_bpp_set(LilGpu *gpu, LilCrtc *crtc, uint8_t bpp);
@@ -75,3 +82,7 @@ void hdmi_pll_enable_sequence(LilGpu *gpu, LilCrtc *crtc);
 
 void pll_find(LilGpu *gpu, LilCrtc *crtc);
 void kbl_pll_disable(LilGpu *gpu, LilConnector *con);
+
+#ifdef __cplusplus
+}
+#endif

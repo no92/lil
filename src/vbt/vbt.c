@@ -208,7 +208,9 @@ void vbt_setup_children(LilGpu *gpu) {
 				con->crtc = lil_malloc(sizeof(LilCrtc));
 				con->crtc->connector = con;
 
-				con->crtc->pipe_id = 1;
+				// TODO(CLEAN):	not optimal
+				// 				on gemini lake this seems to always be 0
+				con->crtc->pipe_id = 0;
 				con->crtc->transcoder = con->crtc->pipe_id;
 				con->crtc->commit_modeset = lil_kbl_commit_modeset;
 				con->crtc->shutdown = lil_kbl_crtc_dp_shutdown;
@@ -222,6 +224,41 @@ void vbt_setup_children(LilGpu *gpu) {
 				}
 
 				kbl_encoder_dp_init(gpu, con->encoder, dev);
+
+				con_id++;
+				break;
+			}
+
+			case DEVICE_TYPE_HDMI: {
+				LilConnector *con = &gpu->connectors[con_id];
+
+				con->id = vbt_handle_to_port(dev->handle);
+				con->type = HDMI;
+				con->ddi_id = vbt_dvo_to_ddi(dev->dvo_port);
+				con->aux_ch = vbt_parse_aux_channel(dev->aux_channel);
+
+				con->get_connector_info = lil_kbl_hdmi_get_connector_info;
+				con->is_connected = lil_kbl_hdmi_is_connected;
+
+				con->encoder = lil_malloc(sizeof(LilEncoder));
+
+				con->crtc = lil_malloc(sizeof(LilCrtc));
+				con->crtc->connector = con;
+
+				con->crtc->pipe_id = 1;
+				con->crtc->transcoder = 1; // con->crtc->pipe_id;
+				con->crtc->commit_modeset = lil_kbl_hdmi_commit_modeset;
+				con->crtc->shutdown = lil_kbl_hdmi_shutdown;
+
+				con->crtc->num_planes = 1;
+				con->crtc->planes = lil_malloc(sizeof(LilPlane));
+				for(size_t i = 0; i < con->crtc->num_planes; i++) {
+					con->crtc->planes[i].enabled = true;
+					con->crtc->planes[i].pipe_id = con->crtc->pipe_id;
+					con->crtc->planes[i].update_surface = lil_kbl_update_primary_surface;
+				}
+
+				kbl_encoder_hdmi_init(gpu, con->encoder, dev);
 
 				con_id++;
 				break;

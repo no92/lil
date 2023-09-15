@@ -140,7 +140,7 @@ typedef struct LilEncoderEdp {
 
 typedef struct LilEncoderDp {
 	bool vbios_hotplug_support;
-
+	uint8_t ddc_pin;
 	uint8_t aux_ch;
 	uint8_t onboard_redriver_emph_vswing;
 	uint8_t dp_max_link_rate;
