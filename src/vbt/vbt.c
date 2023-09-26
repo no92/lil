@@ -41,7 +41,7 @@ const struct vbt_header *vbt_locate(LilGpu *gpu) {
 			}
 
 			rvda += asls_phys;
-		} 
+		}
 
 		lil_log(INFO, "VBT RVDA: 0x%lx\n", rvda);
 
@@ -129,13 +129,11 @@ static enum LilAuxChannel vbt_parse_aux_channel(uint8_t aux_ch) {
 }
 
 void vbt_setup_children(LilGpu *gpu) {
-	lil_log(VERBOSE, "vbt_setup_children: CALLED\n");
 	size_t con_id = 0;
 
 	const struct bdb_driver_features *driver_features = (void *) vbt_get_bdb_block(gpu->vbt_header, BDB_DRIVER_FEATURES);
 	const struct bdb_general_definitions *general_defs = (void *) vbt_get_bdb_block(gpu->vbt_header, BDB_GENERAL_DEFINITIONS);
 
-/*
 	if(driver_features->lvds_config != LVDS_CONFIG_NONE) {
 		struct child_device *dev = (void *) &general_defs->child_dev;
 		LilConnector *con = &gpu->connectors[0];
@@ -149,44 +147,38 @@ void vbt_setup_children(LilGpu *gpu) {
 		lil_assert(con->ddi_id == 0 || con->ddi_id == 3);
 		con->aux_ch = vbt_parse_aux_channel(dev->aux_channel);
 
-		con->get_connector_info = lil_cfl_dp_get_connector_info;
-		con->is_connected = lil_cfl_dp_is_connected;
-		con->get_state = lil_cfl_dp_get_state;
-		con->set_state = lil_cfl_dp_set_state;
+		con->get_connector_info = lil_kbl_dp_get_connector_info;
+		con->is_connected = lil_kbl_dp_is_connected;
+		// con->get_state = lil_kbl_dp_get_state;
+		// con->set_state = lil_kbl_dp_set_state;
 
 		con->encoder = lil_malloc(sizeof(LilEncoder));
 
 		con->crtc = lil_malloc(sizeof(LilCrtc));
 		con->crtc->transcoder = (con->ddi_id == DDI_A) ? TRANSCODER_EDP : TRANSCODER_A;
 		con->crtc->connector = &gpu->connectors[0];
+		con->crtc->pipe_id = 0;
+		con->crtc->commit_modeset = lil_kbl_commit_modeset;
+		con->crtc->shutdown = lil_kbl_crtc_dp_shutdown;
 
 		con->crtc->num_planes = 1;
 		con->crtc->planes = lil_malloc(sizeof(LilPlane));
 		for(size_t i = 0; i < con->crtc->num_planes; i++) {
 			con->crtc->planes[i].enabled = 0;
-			con->crtc->planes[i].pipe_id = 0;
+			con->crtc->planes[i].pipe_id = con->crtc->pipe_id;
 			con->crtc->planes[i].update_surface = lil_kbl_update_primary_surface;
 		}
-
-		con->crtc->pipe_id = 0;
-		con->crtc->commit_modeset = lil_kbl_commit_modeset;
-		con->crtc->shutdown = lil_kbl_crtc_dp_shutdown;
 
 		kbl_encoder_edp_init(gpu, con->encoder);
 
 		con_id++;
 	}
-*/
-	
-	size_t children = (general_defs->header.size - sizeof(*general_defs) + sizeof(struct bdb_block_header)) / general_defs->child_dev_size;
 
-	lil_log(VERBOSE, "vbt_setup_children: children=%lu\n", children);
+	size_t children = (general_defs->header.size - sizeof(*general_defs) + sizeof(struct bdb_block_header)) / general_defs->child_dev_size;
 
 	for(size_t child = con_id; child < 8; child++) {
 		struct child_device *dev = (void *) ((uintptr_t) &general_defs->child_dev + (child * general_defs->child_dev_size));
 		uint32_t device_type = dev->device_type;
-
-		lil_log(VERBOSE, "vbt_setup_children: child=%lu, device_type=%x\n", child, device_type);
 
 		switch(device_type) {
 			case 0: {
@@ -246,7 +238,7 @@ void vbt_setup_children(LilGpu *gpu) {
 				con->crtc->connector = con;
 
 				con->crtc->pipe_id = 1;
-				con->crtc->transcoder = 1; // con->crtc->pipe_id;
+				con->crtc->transcoder = con->crtc->pipe_id;
 				con->crtc->commit_modeset = lil_kbl_hdmi_commit_modeset;
 				con->crtc->shutdown = lil_kbl_hdmi_shutdown;
 

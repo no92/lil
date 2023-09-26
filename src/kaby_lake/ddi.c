@@ -1,3 +1,7 @@
+/**
+ * DDI stands for `Digital Display Interface`.
+ */
+
 #include <lil/imports.h>
 #include <lil/intel.h>
 
@@ -23,42 +27,73 @@ bool kbl_ddi_hotplug_detected(LilGpu *gpu, enum LilDdiId ddi_id) {
 	return (REG(SDEISR) & mask);
 }
 
-static uint8_t *ddi_translation_table(LilGpu *gpu) {
-	if(gpu->gen == GEN_SKL || gpu->gen == GEN_KBL) {
+static const struct lil_ddi_buf_trans *ddi_translation_table(LilGpu *gpu, LilConnector *con, bool hdmi) {
+	if(hdmi) {
+		if(gpu->gen == GEN_SKL || gpu->gen == GEN_KBL) {
+			if(gpu->variant == ULX)
+				return &skl_y_trans_hdmi;
+			else
+				return &skl_trans_hdmi;
+		}
+
+		lil_panic("unhandled GPU gen for HDMI translation tables");
+	}
+
+	if(gpu->gen == GEN_SKL) {
 		if(gpu->variant == ULT) {
-			return skl_u_translations_edp;
+			return &skl_u_trans_edp;
 		} else if(gpu->variant == ULX) {
-			return skl_y_translations_edp;
+			return &skl_y_trans_edp;
 		} else {
-			return skl_translations_edp;
+			return &skl_trans_edp;
 		}
 	} else if(gpu->gen == GEN_KBL) {
 		if(gpu->variant == ULT) {
-			return kbl_u_translations_edp;
+				return &kbl_u_trans_dp;
 		} else if(gpu->variant == ULX) {
-			return kbl_y_translations_edp;
+			return &kbl_y_trans_dp;
 		} else {
-			return kbl_translations_edp;
+			return &kbl_trans_dp;
 		}
 	} else {
 		lil_panic("kbl_ddi_buffer_setup_translations unsupported for this GPU gen");
 	}
 }
 
-void kbl_ddi_buffer_setup_translations(LilGpu *gpu, LilEncoder *enc, uint32_t reg) {
-	uint8_t *table = ddi_translation_table(gpu);
+static bool has_iboost(LilConnector *con) {
+	switch(con->type) {
+		case HDMI:
+			return con->encoder->hdmi.iboost && con->encoder->hdmi.iboost_level < 3;
+		case EDP:
+			return con->encoder->edp.edp_iboost && con->encoder->edp.edp_balance_leg_val;
+		default:
+			lil_panic("unimplemented iboost detection for connector type");
+	}
+}
+
+#define DDI_BUF_TRANS_HDMI_ENTRY 9
+
+void kbl_ddi_buffer_setup_translations(LilGpu *gpu, LilConnector *con, uint32_t reg) {
+	const struct lil_ddi_buf_trans *table = ddi_translation_table(gpu, con, false);
 
 	if(!table)
 		lil_panic("no DDI translations table found");
 
-	uint32_t *translation = (uint32_t *) &(table[80 * enc->edp.edp_vswing_preemph]);
+	uint32_t iboost_flag = has_iboost(con) ? (1 << 31) : 0;
 
-	for(size_t i = 0; i < 10; i++) {
-		REG(reg + (8 * i) + 0) = translation[(i * 2) + 0];
-		if(enc->edp.edp_iboost) {
-			REG(reg + (8 * i) + 0) |= 0x80000000;
+	if(con->type == DISPLAYPORT || con->type == EDP) {
+		for(size_t i = 0; i < table->num_entries; i++) {
+			const struct lil_ddi_buf_trans_entry *t = &table->entries[i];
+
+			REG(reg + (8 * i) + 0) = t->trans1 | iboost_flag;
+			REG(reg + (8 * i) + 4) = t->trans2;
 		}
-		REG(reg + (8 * i) + 4) = translation[(i * 2) + 1];
+	} else if(con->type == HDMI) {
+		const struct lil_ddi_buf_trans *hdmi_table = ddi_translation_table(gpu, con, true);
+		uint8_t hdmi_level = con->encoder->hdmi.hdmi_level_shift;
+
+		REG(reg + (8 * DDI_BUF_TRANS_HDMI_ENTRY) + 0) = hdmi_table->entries[hdmi_level].trans1 | iboost_flag;
+		REG(reg + (8 * DDI_BUF_TRANS_HDMI_ENTRY) + 4) = hdmi_table->entries[hdmi_level].trans2;
 	}
 }
 

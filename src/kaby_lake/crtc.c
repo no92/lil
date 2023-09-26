@@ -41,8 +41,8 @@ static bool pll_available(LilGpu *gpu, uint32_t reg) {
 	/* check if HDPORT pre-emption is enabled to begin with */
 	if(!(hdport_state & HDPORT_STATE_ENABLED)) {
 		/* if not, we can just look for the enable flag */
-		lil_log(VERBOSE, "pll_available: hdport pre-emption enabled, returning enabled bit\n");
-		return !(REG(reg) & (1 << 31));
+		lil_log(VERBOSE, "pll_available: hdport pre-emption disabled, returning enabled bit\n");
+		return (REG(reg) & (1 << 31));
 	}
 
 	/* check if our DPLL has been preempted for HDPORT */
@@ -64,7 +64,7 @@ static bool pll_available(LilGpu *gpu, uint32_t reg) {
 			break;
 		}
 		default: {
-			return !(REG(reg) & (1 << 31));
+			return (REG(reg) & (1 << 31));
 		}
 	}
 
@@ -72,7 +72,7 @@ static bool pll_available(LilGpu *gpu, uint32_t reg) {
 	if(hdport_in_use)
 		return false;
 
-	return !(REG(reg) & (1 << 31));
+	return (REG(reg) & (1 << 31));
 }
 
 void pll_find(LilGpu *gpu, LilCrtc *crtc) {
@@ -138,7 +138,7 @@ void lil_kbl_crtc_dp_shutdown(LilGpu *gpu, LilCrtc *crtc) {
 
 			REG(DP_TP_CTL(crtc->connector->ddi_id)) &= ~0x10000;
 			lil_usleep(10);
-			kbl_ddi_power_disable(gpu, crtc->connector);
+			// kbl_ddi_power_disable(gpu, crtc->connector);
 			kbl_ddi_clock_disable(gpu, crtc);
 
 			if(crtc->connector->type == DISPLAYPORT) {
@@ -362,7 +362,7 @@ void lil_kbl_commit_modeset(struct LilGpu* gpu, struct LilCrtc* crtc) {
 	kbl_unmask_vblank(gpu, crtc);
 	kbl_transcoder_timings_configure(gpu, crtc);
 	kbl_transcoder_bpp_set(gpu, crtc, bpp);
-	kbl_pipe_dithering_enable(gpu, crtc, bpp);
+	// kbl_pipe_dithering_enable(gpu, crtc, bpp);
 	kbl_transcoder_configure_m_n(gpu, crtc, crtc->current_mode.clock, link_rate, max_lanes, bpp, enc->edp.edp_downspread);
 	kbl_transcoder_ddi_polarity_setup(gpu, crtc);
 
@@ -371,7 +371,7 @@ void lil_kbl_commit_modeset(struct LilGpu* gpu, struct LilCrtc* crtc) {
 
 	kbl_transcoder_ddi_setup(gpu, crtc, max_lanes);
 	kbl_transcoder_enable(gpu, crtc);
-	if(crtc->planes[0].enabled) 
+	if(crtc->planes[0].enabled)
 		kbl_plane_enable(gpu, crtc, true);
 
 	if(con->type == EDP) {

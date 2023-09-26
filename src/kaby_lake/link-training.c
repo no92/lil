@@ -10,6 +10,8 @@ static bool kbl_dp_training_pattern_2_set(LilGpu *gpu, LilCrtc *crtc, uint32_t l
 static bool kbl_dp_training_pattern_3_set(LilGpu *gpu, LilCrtc *crtc, uint32_t lanes, uint32_t aux_training_interval, uint16_t *adjust_req_out);
 
 bool kbl_edp_link_training(LilGpu *gpu, LilCrtc *crtc, uint32_t max_link_rate, uint8_t lane_count) {
+	lil_log(VERBOSE, "eDP link training (max link rate %u, %u lanes)\n", max_link_rate, lane_count & 0x1F);
+
 	LilConnector *con = crtc->connector;
 
 	uint8_t dpcd_rev = dp_aux_native_read(gpu, con, DPCD_REV);

@@ -3,16 +3,20 @@
 #include "src/kaby_lake/inc/kbl.h"
 #include "src/regs.h"
 
-static void wait_for_vblank(LilGpu *gpu, LilCrtc *crtc) {
-	REG(IIR(crtc->pipe_id)) |= 1;
+static void wait_for_vblank(LilGpu *gpu, LilPlane *plane) {
+	REG(IIR(plane->pipe_id)) |= 1;
 
-	if(!wait_for_bit_set(REG_PTR(IIR(crtc->pipe_id)), 1, 500000, 1000))
+	if(!wait_for_bit_set(REG_PTR(IIR(plane->pipe_id)), 1, 500000, 1000))
 		lil_log(WARNING, "timeout on wait_for_vblank\n");
 }
 
 bool lil_kbl_update_primary_surface(struct LilGpu* gpu, struct LilPlane* plane, GpuAddr surface_address, GpuAddr line_stride) {
-    volatile uint32_t* pri_surf = REG_PTR(PRI_SURFACE(plane->pipe_id));
-    *pri_surf = surface_address  & ~0xfff;
+	if(surface_address & 0xFFF)
+		return false;
+
+    REG(PRI_SURFACE(plane->pipe_id)) = surface_address;
+
+	wait_for_vblank(gpu, plane);
     return true;
 }
 
@@ -36,16 +40,16 @@ void kbl_plane_enable(LilGpu *gpu, LilCrtc *crtc, bool vblank_wait) {
 	uint32_t lines = (wm + pitch - 1) / pitch;
 	uint32_t blocks = ((wm + 511) >> 9) + 1;
 
-	REG(PLANE_WM_1(crtc->pipe_id)) = blocks | ((lines | 0xFFFE0000) << 14);
+	// REG(PLANE_WM_1(crtc->pipe_id)) = blocks | ((lines | 0xFFFE0000) << 14);
 	// TODO(CLEAN): what is this?
-	// REG(PLANE_WM_1(crtc->pipe_id)) = 0x80000022;
+	REG(PLANE_WM_1(crtc->pipe_id)) = 0x800080A0;
 
-	REG(PRI_CTL(crtc->pipe_id)) |= (1 << 31); // | (1 << 26) | (1 << 20);
+	REG(PRI_CTL(crtc->pipe_id)) |= (1 << 31) | (1 << 13) | (1 << 26) | (1 << 20);
 
 	kbl_plane_page_flip(gpu, crtc);
 
 	if(vblank_wait)
-		wait_for_vblank(gpu, crtc);
+		wait_for_vblank(gpu, &crtc->planes[0]);
 }
 
 // TODO(CLEAN;BIT): this function needs to be cleaned up
@@ -54,9 +58,13 @@ void kbl_plane_disable(LilGpu *gpu, LilCrtc *crtc) {
 	REG(PRI_CTL(crtc->pipe_id)) &= ~(1 << 31);
 
 	kbl_plane_page_flip(gpu, crtc);
-	wait_for_vblank(gpu, crtc);
+	wait_for_vblank(gpu, &crtc->planes[0]);
 
-	REG(PLANE_WM_1(crtc->pipe_id)) &= ~0x80000000;
+	for(size_t i = 0; i < 8; i++) {
+		REG(PLANE_WM_1(crtc->pipe_id) + (4 * i)) = 0;
+	}
+
+	REG(WM_LINETIME(crtc->pipe_id)) = 0;
 }
 
 void kbl_plane_size_set(LilGpu *gpu, LilCrtc *crtc) {

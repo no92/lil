@@ -29,6 +29,7 @@ sources = files(
     'src/kaby_lake/crtc.c',
     'src/kaby_lake/ddi.c',
     'src/kaby_lake/ddi-translations.c',
+    'src/kaby_lake/disable.c',
     'src/kaby_lake/dp.c',
     'src/kaby_lake/dpcd.cpp',
     'src/kaby_lake/edp.c',

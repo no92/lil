@@ -299,5 +299,8 @@ typedef struct LilGpu {
  */
 void lil_init_gpu(LilGpu* ret, void* pci_device);
 
+void kbl_dump_registers(LilGpu* gpu);
+void lil_testcase(LilGpu *gpu);
+
 typedef struct LilIrqType {
 } LilIrqType;

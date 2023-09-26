@@ -16,8 +16,6 @@
 #define FUSE_STATUS_PG1 (1 << 26)
 #define FUSE_STATUS_PG2 (1 << 25)
 
-#define CHICKEN_TRANS(ddi_id) (0x420C0 + (((ddi_id) - 1) * 4))
-
 #define ISR(i) (0x44400 + ((i) * 0x10))
 #define IMR(i) (0x44404 + ((i) * 0x10))
 #define IIR(i) (0x44408 + ((i) * 0x10))
@@ -88,6 +86,8 @@
 #define TRANS_LINKN 0x44
 #define TRANS_MULT 0x210
 #define TRANS_DDI_FUNC_CTL 0x400
+#define SRD_CTL 0x800
+#define SRD_STATUS 0x840
 #define TRANS_MSA_MISC 0x410
 #define TRANS_CONF 0x10008
 
@@ -177,9 +177,11 @@
 #define PRI_CTL(i) (0x70180 + (0x1000 * i))
 #define DSP_ADDR(i) (0x70184 + (0x1000 * i))
 #define PRI_STRIDE(i) (0x70188 + (0x1000 * i))
+#define PLANE_POS(i) (0x7018C + (0x1000 * i))
 #define PLANE_SIZE(i) (0x70190 + (0x1000 * i))
 #define PRI_SURFACE(i) (0x7019C + (0x1000 * i))
 #define PLANE_WM_1(i) (0x70240 + (0x1000 * i))
+#define PLANE_BUG_CFG_1(i) (0x7027C + (0x1000 * i))
 
 #define PLANE_BUF_CFG_1_A 0x7027C
 #define PLANE_BUF_CFG_1_B 0x7127C

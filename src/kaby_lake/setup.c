@@ -100,6 +100,9 @@ void lil_kbl_setup(LilGpu *gpu) {
 
 	lil_kbl_vmem_clear(gpu);
 
+	kbl_hotplug_enable(gpu);
+	kbl_psr_disable(gpu);
+
 	/* TODO: on cold boot, perform the display init sequence */
 	// Disable every transcoder
 	for(LilTranscoder transcoder = TRANSCODER_A; transcoder <= TRANSCODER_C; transcoder++) {
@@ -107,6 +110,8 @@ void lil_kbl_setup(LilGpu *gpu) {
 		kbl_transcoder_ddi_disable_by_id(gpu, transcoder);
 		kbl_transcoder_clock_disable_by_id(gpu, transcoder);
 	}
+
+	REG(DPLL_CTRL2) |= (1 << 16);
 
 	uint8_t dpll0_link_rate = (REG(DPLL_CTRL1) & DPLL_CTRL1_LINK_RATE_MASK(0)) >> 1;
 	gpu->vco_8640 = dpll0_link_rate == 4 || dpll0_link_rate == 5;
@@ -122,8 +127,8 @@ void lil_kbl_setup(LilGpu *gpu) {
 
 		switch(gpu->connectors[i].type) {
 			case EDP: {
-				// if(!kbl_edp_pre_enable(gpu, &gpu->connectors[i]))
-					// lil_panic("eDP pre-enable failed");
+				if(!kbl_edp_pre_enable(gpu, &gpu->connectors[i]))
+					lil_panic("eDP pre-enable failed");
 				break;
 			}
 			case DISPLAYPORT: {
@@ -151,35 +156,37 @@ void lil_kbl_setup(LilGpu *gpu) {
 static void kbl_crtc_init(LilGpu *gpu, LilCrtc *crtc) {
 	enum LilPllId pll_id = 0;
 
-	if((REG(SWF_24) & 0xFFFFFF) == 0) {
-		return;
-	}
+	// if((REG(SWF_24) & 0xFFFFFF) == 0) {
+	// 	return;
+	// }
 
-	uint32_t pll_choice = REG(DPLL_CTRL2) & DPLL_CTRL2_DDI_CLOCK_SELECT_MASK(crtc->connector->ddi_id) >> DPLL_CTRL2_DDI_CLOCK_SELECT_SHIFT(crtc->connector->ddi_id);
+	if(crtc->connector->type != EDP) {
+		uint32_t pll_choice = REG(DPLL_CTRL2) & DPLL_CTRL2_DDI_CLOCK_SELECT_MASK(crtc->connector->ddi_id) >> DPLL_CTRL2_DDI_CLOCK_SELECT_SHIFT(crtc->connector->ddi_id);
 
-	switch(pll_choice) {
-		case 0: {
-			if(REG(LCPLL1_CTL) & (1 << 31))
-				pll_id = LCPLL1;
-			break;
+		switch(pll_choice) {
+			case 0: {
+				if(REG(LCPLL1_CTL) & (1 << 31))
+					pll_id = LCPLL1;
+				break;
+			}
+			case 1: {
+				if(REG(LCPLL2_CTL) & (1 << 31))
+					pll_id = LCPLL2;
+				break;
+			}
+			case 2: {
+				if(REG(WRPLL_CTL1) & (1 << 31))
+					pll_id = WRPLL1;
+				break;
+			}
+			case 3: {
+				if(REG(WRPLL_CTL2) & (1 << 31))
+					pll_id = WRPLL2;
+				break;
+			}
+			default:
+				lil_panic("unsound PLL choice");
 		}
-		case 1: {
-			if(REG(LCPLL2_CTL) & (1 << 31))
-				pll_id = LCPLL2;
-			break;
-		}
-		case 2: {
-			if(REG(WRPLL_CTL1) & (1 << 31))
-				pll_id = WRPLL1;
-			break;
-		}
-		case 3: {
-			if(REG(WRPLL_CTL2) & (1 << 31))
-				pll_id = WRPLL2;
-			break;
-		}
-		default:
-			lil_panic("unsound PLL choice");
 	}
 
 	crtc->pll_id = pll_id;

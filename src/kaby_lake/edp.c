@@ -76,7 +76,7 @@ bool kbl_edp_pre_enable(LilGpu *gpu, LilConnector *con) {
 		uint32_t ref_div = 100 * gpu->ref_clock_freq;
 		REG(PP_OFF_DELAYS) = (enc->edp.t10 << 16) | (REG(PP_OFF_DELAYS) & 0xE000E000);
 		REG(PP_DIVISOR) = (enc->edp.t11_12 & 0xFF) | (((ref_div >> 1) - 1) << 8);
-		REG(PP_CONTROL) |= 2;
+		REG(PP_CONTROL) |= PP_CONTROL_RESET;
 
 		if(enc->edp.backlight_control_method_type == 2 && enc->edp.backlight_inverter_type == 2) {
 			uint32_t backlight_level = ((1000000 * gpu->ref_clock_freq) / enc->edp.pwm_inv_freq) >> 4;
@@ -108,7 +108,7 @@ bool kbl_edp_pre_enable(LilGpu *gpu, LilConnector *con) {
 		}
 
 		if(ddi_buf_trans)
-			kbl_ddi_buffer_setup_translations(gpu, enc, ddi_buf_trans);
+			kbl_ddi_buffer_setup_translations(gpu, con, ddi_buf_trans);
 		else
 			lil_panic("no valid DDI_BUF_TRANS");
 
@@ -116,9 +116,11 @@ bool kbl_edp_pre_enable(LilGpu *gpu, LilConnector *con) {
 	}
 
 	enc->edp.edp_dpcd_rev = dp_aux_native_read(gpu, con, EDP_DPCD_REV);
+	enc->edp.edp_dpcd_rev = dp_aux_native_read(gpu, con, EDP_DPCD_REV);
 
 	if(enc->edp.ssc_bits) {
-		enc->edp.edp_downspread = dp_aux_native_read(gpu, con, MAX_DOWNSPREAD) & 1;
+		// enc->edp.edp_downspread = dp_aux_native_read(gpu, con, MAX_DOWNSPREAD) & 1;
+		enc->edp.edp_downspread = 0;
 	}
 
 	enc->edp.edp_fast_link_training_supported = (dp_aux_native_read(gpu, con, MAX_DOWNSPREAD) & 0x40) && enc->edp.edp_fast_link_training;
@@ -159,6 +161,13 @@ bool kbl_edp_pre_enable(LilGpu *gpu, LilConnector *con) {
 
 		/* if PCI rev < 2, then set gpu->edp_max_link_rate = 10 */
 	}
+
+	lil_log(VERBOSE, "DPCD Info:\n");
+	lil_log(VERBOSE, "\tmax_link_rate: %i\n", enc->edp.edp_max_link_rate);
+	lil_log(VERBOSE, "\tlane_count: %i\n", enc->edp.edp_lane_count & 0x1F);
+	lil_log(VERBOSE, "\tsupport_post_lt_adjust: %s\n", enc->edp.edp_lane_count & (1 << 5) ? "yes" : "no");
+	lil_log(VERBOSE, "\tsupport_tps3_pattern: %s\n", enc->edp.edp_lane_count & (1 << 6) ? "yes" : "no");
+	lil_log(VERBOSE, "\tsupport_enhanced_frame_caps: %s\n", enc->edp.edp_lane_count & (1 << 7) ? "yes" : "no");
 
 	return true;
 }

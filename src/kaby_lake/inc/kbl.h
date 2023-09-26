@@ -24,7 +24,7 @@ void kbl_dpll_ctrl_enable(LilGpu *gpu, LilCrtc *crtc, uint32_t link_rate);
 
 bool kbl_ddi_buf_enabled(LilGpu *gpu, LilCrtc *crtc);
 bool kbl_ddi_hotplug_detected(LilGpu *gpu, enum LilDdiId ddi_id);
-void kbl_ddi_buffer_setup_translations(LilGpu *gpu, LilEncoder *enc, uint32_t reg);
+void kbl_ddi_buffer_setup_translations(LilGpu *gpu, LilConnector *con, uint32_t reg);
 void kbl_ddi_power_enable(LilGpu *gpu, LilCrtc *crtc);
 void kbl_ddi_power_disable(LilGpu *gpu, LilConnector *con);
 void kbl_ddi_balance_leg_set(LilGpu *gpu, enum LilDdiId ddi_id, uint8_t balance_leg);
@@ -82,6 +82,9 @@ void hdmi_pll_enable_sequence(LilGpu *gpu, LilCrtc *crtc);
 
 void pll_find(LilGpu *gpu, LilCrtc *crtc);
 void kbl_pll_disable(LilGpu *gpu, LilConnector *con);
+
+void kbl_hotplug_enable(LilGpu *gpu);
+void kbl_psr_disable(LilGpu *gpu);
 
 #ifdef __cplusplus
 }

@@ -72,7 +72,7 @@ bool kbl_hdmi_pre_enable(LilGpu *gpu, LilConnector *con) {
 
 	if(!kbl_ddi_buf_enabled(gpu, con->crtc)) {
 		lil_log(INFO, "DDI %c not enabled, enabling\n", '0' + con->ddi_id);
-		
+
 		// Gemini Lake and Broxton do not have SFUSE_STRAP.
 		if(gpu->subgen != SUBGEN_GEMINI_LAKE) {
 			uint32_t sfuse_strap_mask = 0;
@@ -97,12 +97,14 @@ bool kbl_hdmi_pre_enable(LilGpu *gpu, LilConnector *con) {
 			if((REG(SFUSE_STRAP) & sfuse_strap_mask) == 0)
 				return false;
 		}
-		uint32_t *trans_table = (void *) HDMI_DDI_TRANS_TABLE;
 
-		REG(DDI_BUF_TRANS(con->ddi_id)) = trans_table[2 * con->encoder->hdmi.hdmi_level_shift];
-		if(con->encoder->hdmi.iboost)
-			REG(DDI_BUF_TRANS(con->ddi_id)) |= 0x80000000;
-		REG(DDI_BUF_TRANS(con->ddi_id) + 4) = trans_table[(2 * con->encoder->hdmi.hdmi_level_shift) + 1];
+		kbl_ddi_buffer_setup_translations(gpu, con, DDI_BUF_CTL(con->crtc->pipe_id));
+
+		// uint32_t *trans_table = (void *) HDMI_DDI_TRANS_TABLE;
+		// REG(DDI_BUF_TRANS(con->ddi_id)) = trans_table[2 * con->encoder->hdmi.hdmi_level_shift];
+		// if(con->encoder->hdmi.iboost)
+		// 	REG(DDI_BUF_TRANS(con->ddi_id)) |= 0x80000000;
+		// REG(DDI_BUF_TRANS(con->ddi_id) + 4) = trans_table[(2 * con->encoder->hdmi.hdmi_level_shift) + 1];
 
 		/* TODO: HPD */
 	}
@@ -190,6 +192,17 @@ static void kbl_unmask_vblank(LilGpu *gpu, LilCrtc *crtc) {
 }							\
 )
 
+static uint32_t kbl_chicken_trans_reg_for_port(LilCrtc *crtc) {
+	switch(crtc->transcoder) {
+		case TRANSCODER_A: return 0x420C0;
+		case TRANSCODER_B: return 0x420C4;
+		case TRANSCODER_C: return 0x420C8;
+		// case TRANSCODER_D: return 0x420D8;
+		case TRANSCODER_EDP: return 0x420CC;
+		default: lil_panic("unhandled transcoder");
+	}
+}
+
 // TODO(CLEAN;BIT): this function needs to be cleaned up
 // 					specifically, we should be using enums or defines for this bit setting/clearing
 void lil_kbl_hdmi_commit_modeset(LilGpu *gpu, LilCrtc *crtc) {
@@ -202,7 +215,7 @@ void lil_kbl_hdmi_commit_modeset(LilGpu *gpu, LilCrtc *crtc) {
 
 	pll_find(gpu, crtc);
 
-	uint32_t stride = (crtc->current_mode.hactive * 4 + 63) >> 6;
+	uint32_t stride = ((crtc->current_mode.hactive * 4) + 63) >> 6;
 
 	REG(PRI_STRIDE(crtc->pipe_id)) = stride;
 	REG(DSP_ADDR(crtc->pipe_id)) = 0;
@@ -226,18 +239,32 @@ void lil_kbl_hdmi_commit_modeset(LilGpu *gpu, LilCrtc *crtc) {
 	kbl_ddi_power_enable(gpu, crtc);
 
 	kbl_transcoder_configure_clock(gpu, crtc);
-	REG(WM_LINETIME(crtc->pipe_id)) = (REG(WM_LINETIME(crtc->pipe_id)) & 0xFFFFFE00) | (linetime & 0x1ff);
+	// REG(WM_LINETIME(crtc->pipe_id)) = (REG(WM_LINETIME(crtc->pipe_id)) & 0xFFFFFE00) | (linetime & 0x1ff);
+	REG(WM_LINETIME(crtc->pipe_id)) = 0;
 	kbl_pipe_src_size_set(gpu, crtc);
 	kbl_plane_size_set(gpu, crtc);
-	kbl_pipe_scaler_enable(gpu, crtc);
+	// kbl_pipe_scaler_enable(gpu, crtc);
 	kbl_unmask_vblank(gpu, crtc);
 	kbl_transcoder_timings_configure(gpu, crtc);
 	kbl_transcoder_bpp_set(gpu, crtc, crtc->current_mode.bpp);
 	kbl_pipe_dithering_enable(gpu, crtc, crtc->current_mode.bpp);
 
-	REG(CHICKEN_TRANS(con->ddi_id)) |= 0xC0000u;
-    lil_usleep(1);
-    REG(CHICKEN_TRANS(con->ddi_id)) &= 0xFFF3FFFF;
+	/* Display WA #1143: skl,kbl,cfl */
+	if(gpu->gen == GEN_SKL) {
+		uint32_t reg = kbl_chicken_trans_reg_for_port(crtc);
+		uint32_t val = REG(reg);
+
+		val |= (1 << 18) | (1 << 19);
+
+		REG(reg) = val;
+		REG(reg);
+
+		lil_usleep(1);
+
+		val &= (1 << 18) | (1 << 19);
+
+		REG(reg) = val;
+	}
 
 	kbl_transcoder_ddi_setup(gpu, crtc, 0);
 	kbl_transcoder_ddi_polarity_setup(gpu, crtc);

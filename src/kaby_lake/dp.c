@@ -110,9 +110,9 @@ bool kbl_dp_pre_enable(LilGpu *gpu, LilConnector *con) {
 				return false;
 			}
 		}
-		
+
 		bool init = false; // TODO: implement unknown_init(gpu, con->crtc);
-		
+
 		bool hdmi_id_present = hdmi_id_present_on_ddc(gpu, con->crtc);
 		lil_log(DEBUG, "kbl_dp_pre_enable: init=%s, hdmi_id_present=%s\n", init ? "true" : "false", hdmi_id_present ? "true" : "false");
 
@@ -137,14 +137,12 @@ bool kbl_dp_pre_enable(LilGpu *gpu, LilConnector *con) {
 	lil_log(VERBOSE, "\tsupport_post_lt_adjust: %s\n", enc->dp.support_post_lt_adjust ? "yes" : "no");
 	lil_log(VERBOSE, "\tsupport_tps3_pattern: %s\n", enc->dp.support_tps3_pattern ? "yes" : "no");
 	lil_log(VERBOSE, "\tsupport_enhanced_frame_caps: %s\n", enc->dp.support_enhanced_frame_caps ? "yes" : "no");
-	
+
 	return true;
 }
 
 bool lil_kbl_dp_is_connected (struct LilGpu* gpu, struct LilConnector* connector) {
-	return false;
-
-	// TODO(): not reliable, only valid on chip startup, also wrong on some generations for some reason 
+	// TODO(): not reliable, only valid on chip startup, also wrong on some generations for some reason
 	if(connector->ddi_id == DDI_A) {
 		return REG(DDI_BUF_CTL(DDI_A)) & DDI_BUF_CTL_DISPLAY_DETECTED;
 	}

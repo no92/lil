@@ -318,6 +318,7 @@ void kbl_dpll_ctrl_enable(LilGpu *gpu, LilCrtc *crtc, uint32_t link_rate) {
 	switch(crtc->pll_id) {
 		case LCPLL1: {
 			lil_assert(crtc->connector->type == EDP || crtc->connector->type == DISPLAYPORT);
+			lil_log(VERBOSE, "configuring LCPLL1\n");
 			set_dpll_ctrl = (2 * dpll_link_rate) | 1;
 			REG(LCPLL1_CTL) &= ~(1 << 31);
 			dpll_ctrl_val = REG(DPLL_CTRL1) & 0xFFFFFFF0;
@@ -333,7 +334,7 @@ void kbl_dpll_ctrl_enable(LilGpu *gpu, LilCrtc *crtc, uint32_t link_rate) {
 				break;
 			}
 
-			if(enc->edp.edp_downspread) {
+			if(crtc->connector->type == EDP && enc->edp.edp_downspread) {
 				dpll1_flags = 0x440;
 			}
 
@@ -343,9 +344,9 @@ void kbl_dpll_ctrl_enable(LilGpu *gpu, LilCrtc *crtc, uint32_t link_rate) {
 		}
 		case WRPLL1: {
 			uint32_t dpll1_flags = 0x1000;
-			if(crtc->connector->type != EDP)
-				lil_panic("non-eDP is unimplemented");
-			if(enc->edp.edp_downspread)
+			if(crtc->connector->type != HDMI && crtc->connector->type != EDP) {
+				lil_panic("non-eDP/HDMI is unimplemented");
+			} else if(enc->edp.edp_downspread)
 				dpll1_flags = 0x11000;
 			set_dpll_ctrl = (dpll_link_rate << 13) | dpll1_flags;
         	dpll_ctrl_val = REG(DPLL_CTRL1) & 0xFFFC0FFF;
@@ -353,12 +354,19 @@ void kbl_dpll_ctrl_enable(LilGpu *gpu, LilCrtc *crtc, uint32_t link_rate) {
 		}
 		case WRPLL2: {
 			uint32_t dpll1_flags = 0x40000;
-			if(crtc->connector->type != EDP)
+			if(crtc->connector->type != EDP) {
 				lil_panic("non-eDP is unimplemented");
-			if(enc->edp.edp_downspread)
+			} else if(enc->edp.edp_downspread) {
 				dpll1_flags = 0x440000;
-			set_dpll_ctrl = (dpll_link_rate << 19) | dpll1_flags;
-        	dpll_ctrl_val = REG(DPLL_CTRL1) & 0xFF03FFFF;
+			}
+
+			if(crtc->connector->type != HDMI) {
+				set_dpll_ctrl = (dpll_link_rate << 19) | dpll1_flags;
+				dpll_ctrl_val = REG(DPLL_CTRL1) & 0xFF03FFFF;
+			} else {
+				set_dpll_ctrl = 0x20000 | dpll1_flags;
+				dpll_ctrl_val = REG(DPLL_CTRL1) & 0xFFFCEFFF;
+			}
 			break;
 		}
 	}

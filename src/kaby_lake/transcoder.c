@@ -85,6 +85,15 @@ void kbl_transcoder_timings_configure(LilGpu *gpu, LilCrtc *crtc) {
 
 	REG(trans(crtc->transcoder) + TRANS_CONF) &= 0xFF9FFFFF;
 
+	switch(crtc->pipe_id) {
+		case 0:
+			REG(PLANE_BUF_CFG_1_A) = 0x009F0000;
+			break;
+		case 1:
+			REG(PLANE_BUF_CFG_1_B) = 0x013F00A0;
+			break;
+	}
+
 	/* TODO: handle interlaced modes here? */
 }
 
@@ -233,20 +242,61 @@ trans_ddi_enable:
 	REG(trans(crtc->transcoder) + TRANS_DDI_FUNC_CTL) |= (1 << 31);
 }
 
+static void intel_reduce_m_n_ratio(uint32_t *num, uint32_t *den) {
+	while (*num > 0xFFFFFF || *den > 0xFFFFFF) {
+		*num >>= 1;
+		*den >>= 1;
+	}
+}
+
+static inline uint64_t div_u64_rem(uint64_t dividend, uint32_t divisor, uint32_t *remainder)
+{
+	union {
+		uint64_t v64;
+		uint32_t v32[2];
+	} d = { dividend };
+	uint32_t upper;
+
+	upper = d.v32[1];
+	d.v32[1] = 0;
+	if (upper >= divisor) {
+		d.v32[1] = upper / divisor;
+		upper %= divisor;
+	}
+	asm ("divl %2" : "=a" (d.v32[0]), "=d" (*remainder) :
+		"rm" (divisor), "0" (d.v32[0]), "1" (upper));
+	return d.v64;
+}
+
+static inline uint64_t mul_u32_u32(uint32_t a, uint32_t b)
+{
+	uint32_t high, low;
+
+	asm ("mull %[b]" : "=a" (low), "=d" (high)
+			 : [a] "a" (a), [b] "rm" (b) );
+
+	return low | ((uint64_t)high) << 32;
+}
+
+static void compute_m_n(uint32_t *ret_m, uint32_t *ret_n, uint32_t m, uint32_t n, uint32_t constant_n) {
+	uint32_t rem;
+	*ret_n = constant_n;
+	*ret_m = div_u64_rem(mul_u32_u32(m, *ret_n), n, &rem);
+
+	intel_reduce_m_n_ratio(ret_m, ret_n);
+}
+
 void kbl_transcoder_configure_m_n(LilGpu *gpu, LilCrtc *crtc, uint32_t pixel_clock, uint32_t link_rate, uint32_t max_lanes, uint32_t bpp, bool downspread) {
+	uint32_t data_m, data_n;
+	uint32_t link_m, link_n;
 	uint64_t strm_clk = 10 * pixel_clock;
 	uint32_t ls_clk = 10 * link_rate;
 
-	if(downspread) {
-		strm_clk = 10025 * strm_clk / 10000;
-	}
+	compute_m_n(&data_m, &data_n, (3 * strm_clk * 8), ls_clk * max_lanes * 8, 0x8000000);
+	compute_m_n(&link_m, &link_n, strm_clk, ls_clk, 0x80000);
 
-	uint32_t ls_clk_lanes = ls_clk * max_lanes;
-	uint64_t linkm = (strm_clk << 19) / ls_clk;
-	uint64_t datam = (((strm_clk * bpp) << 23) / ls_clk_lanes) >> 3;
-
-	REG(trans(crtc->transcoder) + TRANS_DATAM) = datam | 0x7E000000;
-	REG(trans(crtc->transcoder) + TRANS_DATAN) = 0x800000;
-	REG(trans(crtc->transcoder) + TRANS_LINKM) = linkm;
-	REG(trans(crtc->transcoder) + TRANS_LINKN) = 0x80000;
+	REG(trans(crtc->transcoder) + TRANS_DATAM) = data_m | (63 << 25);
+	REG(trans(crtc->transcoder) + TRANS_DATAN) = data_n;
+	REG(trans(crtc->transcoder) + TRANS_LINKM) = link_m;
+	REG(trans(crtc->transcoder) + TRANS_LINKN) = link_n;
 }
