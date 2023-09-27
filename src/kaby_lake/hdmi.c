@@ -2,10 +2,10 @@
 #include <lil/intel.h>
 #include <stdint.h>
 
-#include "src/kaby_lake/inc/dpcd.h"
+#include "src/kaby_lake/dp-aux.h"
 #include "src/edid.h"
 #include "src/gmbus.h"
-#include "src/kaby_lake/inc/kbl.h"
+#include "src/kaby_lake/kbl.h"
 #include "src/regs.h"
 
 static bool ddi_in_use_by_hdport(LilGpu *gpu, enum LilDdiId ddi_id) {
@@ -161,8 +161,8 @@ void lil_kbl_hdmi_shutdown(LilGpu *gpu, LilCrtc *crtc) {
 
 	REG(VIDEO_DIP_CTL(con->ddi_id)) &= ~0x1000;
 	kbl_plane_disable(gpu, crtc);
-	kbl_transcoder_disable(gpu, crtc);
-	kbl_transcoder_ddi_disable(gpu, crtc);
+	kbl_transcoder_disable(gpu, crtc->transcoder);
+	kbl_transcoder_ddi_disable(gpu, crtc->transcoder);
 	kbl_pipe_scaler_disable(gpu, crtc);
 	kbl_transcoder_clock_disable(gpu, crtc);
 	if(DDI_BUF_CTL(con->ddi_id) & 0x10000)

@@ -1,7 +1,7 @@
 #include <lil/intel.h>
 #include <lil/imports.h>
 
-#include "src/kaby_lake/inc/kbl.h"
+#include "src/kaby_lake/kbl.h"
 #include "src/regs.h"
 
 struct vco_lookup {

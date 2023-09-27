@@ -1,6 +1,6 @@
 #include <lil/imports.h>
 
-#include "src/kaby_lake/inc/kbl.h"
+#include "src/kaby_lake/kbl.h"
 #include "src/regs.h"
 
 static void wait_for_vblank(LilGpu *gpu, LilPlane *plane) {

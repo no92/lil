@@ -1,9 +1,10 @@
 #include <lil/imports.h>
 #include <lil/intel.h>
 
-#include "src/kaby_lake/inc/dpcd.h"
-#include "src/kaby_lake/inc/kbl.h"
-#include "src/kaby_lake/inc/hpd.h"
+#include "src/kaby_lake/dp-aux.h"
+#include "src/dpcd.h"
+#include "src/kaby_lake/kbl.h"
+#include "src/kaby_lake/hpd.h"
 #include "src/edid.h"
 #include "src/regs.h"
 
@@ -127,14 +128,12 @@ bool kbl_dp_pre_enable(LilGpu *gpu, LilConnector *con) {
 	// Read various display port parameters
 	enc->dp.dp_max_link_rate = dp_aux_native_read(gpu, con, MAX_LINK_RATE);
 	uint8_t raw_max_lane_count = dp_aux_native_read(gpu, con, MAX_LANE_COUNT);
-	enc->dp.dp_lane_count = raw_max_lane_count & 0x1F;
-	enc->dp.support_post_lt_adjust = raw_max_lane_count & (1 << 5);
-	enc->dp.support_tps3_pattern = raw_max_lane_count & (1 << 6);
-	enc->dp.support_enhanced_frame_caps = raw_max_lane_count & (1 << 7);
+	enc->dp.dp_lane_count = raw_max_lane_count & MAX_LANE_COUNT_MASK;
+	enc->dp.support_tps3_pattern = raw_max_lane_count & MAX_LANE_COUNT_TPS3_SUPPORTED;
+	enc->dp.support_enhanced_frame_caps = raw_max_lane_count & MAX_LANE_COUNT_ENHANCED_FRAME_CAP;
 	lil_log(VERBOSE, "DPCD Info:\n");
 	lil_log(VERBOSE, "\tmax_link_rate: %i\n", enc->dp.dp_max_link_rate);
 	lil_log(VERBOSE, "\tlane_count: %i\n", enc->dp.dp_lane_count);
-	lil_log(VERBOSE, "\tsupport_post_lt_adjust: %s\n", enc->dp.support_post_lt_adjust ? "yes" : "no");
 	lil_log(VERBOSE, "\tsupport_tps3_pattern: %s\n", enc->dp.support_tps3_pattern ? "yes" : "no");
 	lil_log(VERBOSE, "\tsupport_enhanced_frame_caps: %s\n", enc->dp.support_enhanced_frame_caps ? "yes" : "no");
 

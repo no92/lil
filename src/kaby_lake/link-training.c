@@ -1,8 +1,9 @@
 #include <lil/imports.h>
 #include <lil/intel.h>
 
-#include "src/kaby_lake/inc/kbl.h"
-#include "src/kaby_lake/inc/dpcd.h"
+#include "src/kaby_lake/kbl.h"
+#include "src/kaby_lake/dp-aux.h"
+#include "src/dpcd.h"
 #include "src/regs.h"
 
 static bool kbl_dp_training_pattern_1_set(LilGpu *gpu, LilCrtc *crtc, uint32_t lanes, uint32_t aux_training_interval, uint16_t *adjust_req_out);
@@ -22,7 +23,7 @@ bool kbl_edp_link_training(LilGpu *gpu, LilCrtc *crtc, uint32_t max_link_rate, u
 		edp_rev = dp_aux_native_read(gpu, con, EDP_DPCD_REV);
 	}
 
-	if(dpcd_rev >= 0x12) {
+	if(dpcd_rev >= DPCD_REV_12) {
 		aux_training_interval = dp_aux_native_read(gpu, con, TRAINING_AUX_RD_INTERVAL);
 		aux_training_interval &= ~0x80;
 	}
@@ -137,15 +138,13 @@ static void dp_vswing_emp_select(LilGpu *gpu, LilCrtc *crtc, uint8_t vswing, uin
 static void dp_training_lanes_set(LilGpu *gpu, LilCrtc *crtc, uint32_t lanes, uint8_t vswing, uint8_t preemph, bool max_vswing, bool max_preemph) {
 	uint8_t data[4];
 
-	data[0] = vswing | (preemph << 3);
+	data[0] = vswing | (preemph << TRAINING_PREEMPHASIS_SHIFT);
 
-	if(max_vswing) {
-		data[0] |= (1 << 2);
-	}
+	if(max_vswing)
+		data[0] |= TRAINING_MAX_SWING_REACHED;
 
-	if(max_preemph) {
-		data[0] |= (1 << 5);
-	}
+	if(max_preemph)
+		data[0] |= TRAINING_MAX_PREEMPHASIS_REACHED;
 
 	for(size_t i = 1; i < lanes; i++) {
 		data[i] = data[0];

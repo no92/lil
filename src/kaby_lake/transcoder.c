@@ -1,6 +1,8 @@
 #include <lil/intel.h>
 
-#include "src/kaby_lake/inc/kbl.h"
+#include "src/dpcd.h"
+#include "src/kaby_lake/kbl.h"
+#include "src/helpers.h"
 #include "src/regs.h"
 
 static uint32_t trans(LilTranscoder id) {
@@ -14,32 +16,16 @@ static uint32_t trans(LilTranscoder id) {
 }
 
 void kbl_transcoder_enable(LilGpu *gpu, LilCrtc *crtc) {
-	REG(trans(crtc->transcoder) + TRANS_CONF) |= (1 << 31);
+	REG(trans(crtc->transcoder) + TRANS_CONF) |= TRANS_CONF_ENABLE;
 }
 
-void kbl_transcoder_disable(LilGpu *gpu, LilCrtc *crtc) {
-	// if(crtc->transcoder == TRANSCODER_EDP)
-		// return;
-
-	REG(trans(crtc->transcoder) + TRANS_CONF) &= ~(1 << 31);
-	wait_for_bit_unset(REG_PTR(trans(crtc->transcoder) + TRANS_CONF), (1 << 30), 21000, 1000);
+void kbl_transcoder_disable(LilGpu *gpu, LilTranscoder transcoder) {
+	REG(trans(transcoder) + TRANS_CONF) &= ~TRANS_CONF_ENABLE;
+	wait_for_bit_unset(REG_PTR(trans(transcoder) + TRANS_CONF), TRANS_CONF_STATE, 21000, 1000);
 }
 
-void kbl_transcoder_disable_by_id(LilGpu *gpu, LilTranscoder transcoder) {
-	REG(trans(transcoder) + TRANS_CONF) &= ~(1 << 31);
-	wait_for_bit_unset(REG_PTR(trans(transcoder) + TRANS_CONF), (1 << 30), 21000, 1000);
-}
-
-void kbl_transcoder_ddi_disable(LilGpu *gpu, LilCrtc *crtc) {
-	REG(trans(crtc->transcoder) + TRANS_DDI_FUNC_CTL) &= 0xFFFFFFF;
-	if(gpu->subgen == SUBGEN_GEMINI_LAKE) {
-		// Quirk: delay for 100ms
-		lil_sleep(100);
-	}
-}
-
-void kbl_transcoder_ddi_disable_by_id(LilGpu *gpu, LilTranscoder transcoder) {
-	REG(trans(transcoder) + TRANS_DDI_FUNC_CTL) &= 0xFFFFFFF;
+void kbl_transcoder_ddi_disable(LilGpu *gpu, LilTranscoder transcoder) {
+	REG(trans(transcoder) + TRANS_DDI_FUNC_CTL) &= ~(TRANS_DDI_FUNC_CTL_ENABLE | TRANS_DDI_FUNC_CTL_SELECT_DDI_MASK);
 	if(gpu->subgen == SUBGEN_GEMINI_LAKE) {
 		// Quirk: delay for 100ms
 		lil_sleep(100);
@@ -48,29 +34,32 @@ void kbl_transcoder_ddi_disable_by_id(LilGpu *gpu, LilTranscoder transcoder) {
 
 void kbl_transcoder_clock_disable(LilGpu *gpu, LilCrtc *crtc) {
 	if(crtc->transcoder != TRANSCODER_EDP && crtc->connector->type != EDP) {
-		REG(TRANS_CLK_SEL(crtc->transcoder)) &= 0x1FFFFFFF;
+		REG(TRANS_CLK_SEL(crtc->transcoder)) &= ~TRANS_CLK_SEL_CLOCK_MASK;
 	}
 }
 
 void kbl_transcoder_clock_disable_by_id(LilGpu *gpu, LilTranscoder transcoder) {
-	REG(TRANS_CLK_SEL(transcoder)) &= 0x1FFFFFFF;
+	REG(TRANS_CLK_SEL(transcoder)) &= ~TRANS_CLK_SEL_CLOCK_MASK;
 }
 
 void kbl_transcoder_configure_clock(LilGpu *gpu, LilCrtc *crtc) {
+	lil_assert((REG(trans(crtc->transcoder) + TRANS_CONF) & TRANS_CONF_ENABLE) == 0);
+
 	uint32_t val = 0;
 
+	// transcoder EDP always uses DDI A clock
 	if(crtc->transcoder == TRANSCODER_EDP)
 		return;
 
 	switch(crtc->connector->ddi_id) {
-		case DDI_A: val = 0x00000000; break;
-		case DDI_B: val = 0x40000000; break;
-		case DDI_C: val = 0x60000000; break;
-		case DDI_D: val = 0x80000000; break;
-		case DDI_E: val = 0xA0000000; break;
+		case DDI_A: val = TRANS_CLK_SEL_CLOCK_NONE; break;
+		case DDI_B: val = TRANS_CLK_SEL_CLOCK_DDI_B; break;
+		case DDI_C: val = TRANS_CLK_SEL_CLOCK_DDI_C; break;
+		case DDI_D: val = TRANS_CLK_SEL_CLOCK_DDI_D; break;
+		case DDI_E: val = TRANS_CLK_SEL_CLOCK_DDI_E; break;
 	}
 
-	REG(TRANS_CLK_SEL(crtc->transcoder)) = (REG(TRANS_CLK_SEL(crtc->transcoder)) & 0x1FFFFFFF) | val;
+	REG(TRANS_CLK_SEL(crtc->transcoder)) = (REG(TRANS_CLK_SEL(crtc->transcoder)) & TRANS_CLK_SEL_CLOCK_MASK) | val;
 }
 
 void kbl_transcoder_timings_configure(LilGpu *gpu, LilCrtc *crtc) {
@@ -83,7 +72,7 @@ void kbl_transcoder_timings_configure(LilGpu *gpu, LilCrtc *crtc) {
 	REG(trans(crtc->transcoder) + TRANS_VBLANK) = ((mode->vtotal - 1) << 16) | (mode->vactive - 1);
 	REG(trans(crtc->transcoder) + TRANS_VSYNC) = ((mode->vsyncEnd - 1) << 16) | (mode->vsyncStart - 1);
 
-	REG(trans(crtc->transcoder) + TRANS_CONF) &= 0xFF9FFFFF;
+	REG(trans(crtc->transcoder) + TRANS_CONF) &= ~TRANS_CONF_INTERLACED_MODE_MASK;
 
 	switch(crtc->pipe_id) {
 		case 0:
@@ -102,49 +91,48 @@ void kbl_transcoder_bpp_set(LilGpu *gpu, LilCrtc *crtc, uint8_t bpp) {
 
 	switch(bpp) {
 		case 18:
-			val = 0x200000;
+			val = TRANS_DDI_FUNC_CTL_MODE_6_BPC;
 			break;
 		case 24:
-			val = 0;
+			val = TRANS_DDI_FUNC_CTL_MODE_8_BPC;
 			break;
 		case 30:
-			val = 0x100000;
+			val = TRANS_DDI_FUNC_CTL_MODE_10_BPC;
 			break;
 		case 36:
-			val = 0x300000;
+			val = TRANS_DDI_FUNC_CTL_MODE_12_BPC;
 			break;
 		default:
 			lil_panic("unsupported bpp");
 	}
 
-	REG(trans(crtc->transcoder) + TRANS_DDI_FUNC_CTL) = (REG(trans(crtc->transcoder) + TRANS_DDI_FUNC_CTL) & 0xFF8FFFFF) | val;
+	REG(trans(crtc->transcoder) + TRANS_DDI_FUNC_CTL) = (REG(trans(crtc->transcoder) + TRANS_DDI_FUNC_CTL) & ~TRANS_DDI_FUNC_CTL_MODE_BPC_MASK) | val;
 }
 
 void kbl_transcoder_set_dp_msa_misc(LilGpu *gpu, LilCrtc *crtc, uint8_t bpp) {
-	if(crtc->connector->type != EDP && crtc->connector->type != DISPLAYPORT) {
+	if(crtc->connector->type != EDP && crtc->connector->type != DISPLAYPORT)
 		return;
-	}
 
 	uint32_t val = 0;
 
 	switch(bpp) {
 		case 18:
-			val = 0;
+			val = DP_MSA_MISC_6_BPC;
 			break;
 		case 24:
-			val = 0x20;
+			val = DP_MSA_MISC_8_BPC;
 			break;
 		case 30:
-			val = 0x40;
+			val = DP_MSA_MISC_10_BPC;
 			break;
 		case 36:
-			val = 0x60;
+			val = DP_MSA_MISC_12_BPC;
 			break;
 		default:
 			lil_panic("unsupported bpp");
 	}
 
-	REG(trans(crtc->transcoder) + TRANS_MSA_MISC) = val | 1;
+	REG(trans(crtc->transcoder) + TRANS_MSA_MISC) = val | DP_MSA_MISC_SYNC_CLOCK;
 }
 
 void kbl_transcoder_ddi_polarity_setup(LilGpu *gpu, LilCrtc *crtc) {
@@ -152,17 +140,17 @@ void kbl_transcoder_ddi_polarity_setup(LilGpu *gpu, LilCrtc *crtc) {
 		uint32_t val = REG(trans(crtc->transcoder) + TRANS_DDI_FUNC_CTL);
 
 		if(crtc->current_mode.hsyncPolarity == 2)
-			val |= 0x10000;
+			val |= TRANS_DDI_FUNC_CTL_HSYNC;
 		else
-			val &= ~0x10000;
+			val &= ~TRANS_DDI_FUNC_CTL_HSYNC;
 
 		REG(trans(crtc->transcoder) + TRANS_DDI_FUNC_CTL) = val;
 		val = REG(trans(crtc->transcoder) + TRANS_DDI_FUNC_CTL);
 
 		if(crtc->current_mode.vsyncPolarity == 2)
-			val |= 0x20000;
+			val |= TRANS_DDI_FUNC_CTL_VSYNC;
 		else
-			val &= ~0x20000;
+			val &= ~TRANS_DDI_FUNC_CTL_VSYNC;
 
 		REG(trans(crtc->transcoder) + TRANS_DDI_FUNC_CTL) = val;
 	}
@@ -173,19 +161,19 @@ void kbl_transcoder_ddi_setup(LilGpu *gpu, LilCrtc *crtc, uint32_t lanes) {
 
 	switch(crtc->connector->ddi_id) {
 		case DDI_A:
-			val = 0;
+			val = TRANS_DDI_FUNC_CTL_SELECT_DDI_NONE;
 			break;
 		case DDI_B:
-			val = 0x10000000;
+			val = TRANS_DDI_FUNC_CTL_SELECT_DDI_B;
 			break;
 		case DDI_C:
-			val = 0x20000000;
+			val = TRANS_DDI_FUNC_CTL_SELECT_DDI_C;
 			break;
 		case DDI_D:
-			val = 0x30000000;
+			val = TRANS_DDI_FUNC_CTL_SELECT_DDI_D;
 			break;
 		case DDI_E:
-			val = 0x40000000;
+			val = TRANS_DDI_FUNC_CTL_SELECT_DDI_E;
 			break;
 	}
 
@@ -194,16 +182,16 @@ void kbl_transcoder_ddi_setup(LilGpu *gpu, LilCrtc *crtc, uint32_t lanes) {
 	if(crtc->transcoder == TRANSCODER_EDP) {
 		switch(crtc->pipe_id) {
 			case 0:
-				val = 0;
+				val = TRANS_DDI_FUNC_CTL_EDP_INPUT_PIPE_A;
 				break;
 			case 1:
-				val = 0x5000;
+				val = TRANS_DDI_FUNC_CTL_EDP_INPUT_PIPE_B;
 				break;
 			case 2:
-				val = 0x6000;
+				val = TRANS_DDI_FUNC_CTL_EDP_INPUT_PIPE_C;
 				break;
 			default:
-				lil_panic("unhandled pipe");
+				lil_panic("invalid pipe for transcoder EDP");
 		}
 
 		REG(TRANSCODER_EDP_BASE + TRANS_DDI_FUNC_CTL) = val;
@@ -211,11 +199,11 @@ void kbl_transcoder_ddi_setup(LilGpu *gpu, LilCrtc *crtc, uint32_t lanes) {
 
 	switch(crtc->connector->type) {
 		case HDMI:
-			REG(trans(crtc->transcoder) + TRANS_DDI_FUNC_CTL) = (REG(trans(crtc->transcoder) + TRANS_DDI_FUNC_CTL) & 0xF8FFFFFF);
+			REG(trans(crtc->transcoder) + TRANS_DDI_FUNC_CTL) = (REG(trans(crtc->transcoder) + TRANS_DDI_FUNC_CTL) & ~TRANS_DDI_FUNC_CTL_MODE_SELECT_MASK) | TRANS_DDI_FUNC_CTL_MODE_SELECT_HDMI;
 			break;
 		case DISPLAYPORT:
 		case EDP:
-			REG(trans(crtc->transcoder) + TRANS_DDI_FUNC_CTL) = (REG(trans(crtc->transcoder) + TRANS_DDI_FUNC_CTL) & 0xF8FFFFFF) | 0x2000000;
+			REG(trans(crtc->transcoder) + TRANS_DDI_FUNC_CTL) = (REG(trans(crtc->transcoder) + TRANS_DDI_FUNC_CTL) & ~TRANS_DDI_FUNC_CTL_MODE_SELECT_MASK) | TRANS_DDI_FUNC_CTL_MODE_SELECT_DP_SST;
 			break;
 		default:
 			lil_panic("unimplemented connector type");
@@ -225,74 +213,45 @@ void kbl_transcoder_ddi_setup(LilGpu *gpu, LilCrtc *crtc, uint32_t lanes) {
 		case 0:
 			goto trans_ddi_enable;
 		case 1:
-			val = 0;
+			val = TRANS_DDI_FUNC_CTL_MODE_X1;
 			break;
 		case 2:
-			val = 2;
+			val = TRANS_DDI_FUNC_CTL_MODE_X2;
 			break;
 		case 4:
-			val = 6;
+			val = TRANS_DDI_FUNC_CTL_MODE_X4;
 			break;
 		default:
-			lil_panic("invalid lanes");
+			lil_panic("invalid lane count");
 	}
 
-	REG(trans(crtc->transcoder) + TRANS_DDI_FUNC_CTL) = (REG(trans(crtc->transcoder) + TRANS_DDI_FUNC_CTL) & 0xFFFFFFF1) | val;
+	REG(trans(crtc->transcoder) + TRANS_DDI_FUNC_CTL) = (REG(trans(crtc->transcoder) + TRANS_DDI_FUNC_CTL) & ~TRANS_DDI_FUNC_CTL_MODE_MASK) | val;
 trans_ddi_enable:
-	REG(trans(crtc->transcoder) + TRANS_DDI_FUNC_CTL) |= (1 << 31);
-}
-
-static void intel_reduce_m_n_ratio(uint32_t *num, uint32_t *den) {
-	while (*num > 0xFFFFFF || *den > 0xFFFFFF) {
-		*num >>= 1;
-		*den >>= 1;
-	}
-}
-
-static inline uint64_t div_u64_rem(uint64_t dividend, uint32_t divisor, uint32_t *remainder)
-{
-	union {
-		uint64_t v64;
-		uint32_t v32[2];
-	} d = { dividend };
-	uint32_t upper;
-
-	upper = d.v32[1];
-	d.v32[1] = 0;
-	if (upper >= divisor) {
-		d.v32[1] = upper / divisor;
-		upper %= divisor;
-	}
-	asm ("divl %2" : "=a" (d.v32[0]), "=d" (*remainder) :
-		"rm" (divisor), "0" (d.v32[0]), "1" (upper));
-	return d.v64;
-}
-
-static inline uint64_t mul_u32_u32(uint32_t a, uint32_t b)
-{
-	uint32_t high, low;
-
-	asm ("mull %[b]" : "=a" (low), "=d" (high)
-			 : [a] "a" (a), [b] "rm" (b) );
-
-	return low | ((uint64_t)high) << 32;
+	REG(trans(crtc->transcoder) + TRANS_DDI_FUNC_CTL) |= TRANS_DDI_FUNC_CTL_ENABLE;
 }
 
 static void compute_m_n(uint32_t *ret_m, uint32_t *ret_n, uint32_t m, uint32_t n, uint32_t constant_n) {
-	uint32_t rem;
 	*ret_n = constant_n;
-	*ret_m = div_u64_rem(mul_u32_u32(m, *ret_n), n, &rem);
 
-	intel_reduce_m_n_ratio(ret_m, ret_n);
+	uint64_t mul;
+	bool overflow = __builtin_umull_overflow(m, *ret_n, &mul);
+	lil_assert(!overflow);
+
+	*ret_m = div_u64(mul, n);
+
+	while (*ret_m > 0xFFFFFF || *ret_n > 0xFFFFFF) {
+		*ret_m >>= 1;
+		*ret_n >>= 1;
+	}
 }
 
-void kbl_transcoder_configure_m_n(LilGpu *gpu, LilCrtc *crtc, uint32_t pixel_clock, uint32_t link_rate, uint32_t max_lanes, uint32_t bpp, bool downspread) {
+void kbl_transcoder_configure_m_n(LilGpu *gpu, LilCrtc *crtc, uint32_t pixel_clock, uint32_t link_rate, uint32_t lanes, uint32_t bits_per_pixel) {
 	uint32_t data_m, data_n;
 	uint32_t link_m, link_n;
 	uint64_t strm_clk = 10 * pixel_clock;
 	uint32_t ls_clk = 10 * link_rate;
 
-	compute_m_n(&data_m, &data_n, (3 * strm_clk * 8), ls_clk * max_lanes * 8, 0x8000000);
+	compute_m_n(&data_m, &data_n, (bits_per_pixel * strm_clk), ls_clk * lanes * 8, 0x8000000);
 	compute_m_n(&link_m, &link_n, strm_clk, ls_clk, 0x80000);
 
 	REG(trans(crtc->transcoder) + TRANS_DATAM) = data_m | (63 << 25);

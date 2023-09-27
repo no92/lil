@@ -1,8 +1,9 @@
 #include <lil/imports.h>
 #include <lil/intel.h>
 
-#include "src/kaby_lake/inc/dpcd.h"
-#include "src/kaby_lake/inc/kbl.h"
+#include "src/kaby_lake/dp-aux.h"
+#include "src/dpcd.h"
+#include "src/kaby_lake/kbl.h"
 #include "src/regs.h"
 
 bool kbl_edp_aux_readable(LilGpu *gpu, LilConnector *con) {

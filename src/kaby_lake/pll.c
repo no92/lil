@@ -2,7 +2,7 @@
 #include <lil/intel.h>
 #include <stdint.h>
 
-#include "src/kaby_lake/inc/kbl.h"
+#include "src/kaby_lake/kbl.h"
 #include "src/regs.h"
 
 // TODO(CLEAN;BIT): this function needs to be cleaned up

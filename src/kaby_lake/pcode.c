@@ -1,6 +1,6 @@
 #include <lil/imports.h>
 
-#include "src/kaby_lake/inc/kbl.h"
+#include "src/kaby_lake/kbl.h"
 #include "src/regs.h"
 
 // TODO(CLEAN;UNCLEAR_ACTIONS)	what does timeout do and what does that weird if statement do?

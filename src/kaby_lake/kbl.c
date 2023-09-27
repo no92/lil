@@ -1,8 +1,8 @@
 #include <lil/imports.h>
 #include <lil/intel.h>
 
-#include "src/kaby_lake/inc/kbl.h"
-#include "src/kaby_lake/inc/gtt.h"
+#include "src/kaby_lake/kbl.h"
+#include "src/kaby_lake/gtt.h"
 
 void lil_init_kbl_gpu(LilGpu* ret) {
 	ret->vmem_clear = lil_kbl_vmem_clear;

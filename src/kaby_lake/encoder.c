@@ -17,6 +17,7 @@ void kbl_encoder_edp_init(LilGpu *gpu, LilEncoder *enc) {
 	enc->edp.backlight_inverter_polarity = lfp_blc->panel[panel_type].active_low_pwm;
 	enc->edp.pwm_inv_freq = lfp_blc->panel[panel_type].pwm_freq_hz;
 	enc->edp.initial_brightness = lfp_blc->level[panel_type];
+	enc->edp.min_brightness = lfp_blc->panel[panel_type].min_brightness;
 
 	enc->edp.ssc_bits = (lvds_options->ssc_bits >> panel_type) & 1;
 

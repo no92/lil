@@ -1,11 +1,11 @@
 #include <lil/intel.h>
 #include <lil/imports.h>
 
-#include "src/ivy_bridge/inc/ivb.h"
-#include "src/ivy_bridge/inc/crtc.h"
-#include "src/ivy_bridge/inc/interrupt.h"
-#include "src/ivy_bridge/inc/plane.h"
-#include "src/ivy_bridge/inc/gtt.h"
+#include "src/ivy_bridge/ivb.h"
+#include "src/ivy_bridge/crtc.h"
+#include "src/ivy_bridge/interrupt.h"
+#include "src/ivy_bridge/plane.h"
+#include "src/ivy_bridge/gtt.h"
 
 #include "src/pci.h"
 #include "src/lvds.h"

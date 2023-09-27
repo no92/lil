@@ -1,0 +1,7 @@
+[wrap-git]
+directory = lil
+url = https://github.com/Matt8898/lil
+revision = master
+
+[provide]
+lil = dependency

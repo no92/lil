@@ -27,13 +27,6 @@ extern const struct lil_ddi_buf_trans skl_y_trans_edp;
 extern const struct lil_ddi_buf_trans skl_trans_hdmi;
 extern const struct lil_ddi_buf_trans skl_y_trans_hdmi;
 
-extern uint8_t skl_translations_edp[160];
-extern uint8_t skl_u_translations_edp[160];
-extern uint8_t skl_y_translations_edp[160];
-extern uint8_t kbl_translations_edp[160];
-extern uint8_t kbl_u_translations_edp[160];
-extern uint8_t kbl_y_translations_edp[160];
-
 #ifdef __cplusplus
 }
 #endif

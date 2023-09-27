@@ -2,9 +2,9 @@
 #include <lil/imports.h>
 #include <lil/vbt.h>
 
-#include "src/kaby_lake/inc/plane.h"
-#include "src/kaby_lake/inc/dp.h"
-#include "src/kaby_lake/inc/kbl.h"
+#include "src/kaby_lake/plane.h"
+#include "src/kaby_lake/dp.h"
+#include "src/kaby_lake/kbl.h"
 #include "src/pci.h"
 #include "src/vbt/opregion.h"
 

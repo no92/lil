@@ -2,8 +2,8 @@
 #include <lil/intel.h>
 #include <stdint.h>
 
-#include "src/kaby_lake/inc/kbl.h"
-#include "src/kaby_lake/inc/hpd.h"
+#include "src/kaby_lake/kbl.h"
+#include "src/kaby_lake/hpd.h"
 #include "src/regs.h"
 
 void kbl_init_hpd(struct LilGpu* gpu) {
@@ -114,7 +114,7 @@ bool kbl_detect_ddi_hotplug_state(LilGpu* gpu, LilConnector* connector) {
 			break;
 		}
 		default: {
-			lil_panic("invalid DDI for gkl_detect_ddi_hotplug_state\n");		
+			lil_panic("invalid DDI for gkl_detect_ddi_hotplug_state\n");
 		}
 	}
 	REG(DE_PORT_INTERRUPT) = reg;

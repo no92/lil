@@ -104,6 +104,7 @@ typedef struct LilEncoderEdp {
 	uint8_t backlight_inverter_polarity;
 	uint16_t pwm_inv_freq;
 	uint32_t initial_brightness;
+	uint8_t min_brightness;
 	uint16_t pwm_on_to_backlight_enable;
 
 	uint8_t edp_vswing_preemph;
@@ -145,7 +146,6 @@ typedef struct LilEncoderDp {
 	uint8_t onboard_redriver_emph_vswing;
 	uint8_t dp_max_link_rate;
 	uint8_t dp_lane_count;
-	bool support_post_lt_adjust;
 	bool support_tps3_pattern;
 	bool support_enhanced_frame_caps;
 } LilEncoderDp;

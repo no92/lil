@@ -1,6 +1,6 @@
 #include <lil/intel.h>
 
-#include "src/kaby_lake/inc/kbl.h"
+#include "src/kaby_lake/kbl.h"
 #include "src/regs.h"
 
 void kbl_pipe_src_size_set(LilGpu *gpu, LilCrtc *crtc) {

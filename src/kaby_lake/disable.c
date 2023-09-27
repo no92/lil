@@ -1,4 +1,4 @@
-#include "src/kaby_lake/inc/kbl.h"
+#include "src/kaby_lake/kbl.h"
 #include "src/regs.h"
 
 static uint32_t transcoders[4] = { TRANSCODER_A_BASE, TRANSCODER_B_BASE, TRANSCODER_C_BASE, TRANSCODER_EDP_BASE };

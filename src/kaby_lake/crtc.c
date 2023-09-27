@@ -1,8 +1,9 @@
 #include <lil/imports.h>
 #include <lil/intel.h>
 
-#include "src/kaby_lake/inc/dpcd.h"
-#include "src/kaby_lake/inc/kbl.h"
+#include "src/kaby_lake/dp-aux.h"
+#include "src/dpcd.h"
+#include "src/kaby_lake/kbl.h"
 #include "src/regs.h"
 
 static uint8_t dp_link_rate_for_crtc(LilGpu *gpu, struct LilCrtc* crtc) {
@@ -126,8 +127,8 @@ void lil_kbl_crtc_dp_shutdown(LilGpu *gpu, LilCrtc *crtc) {
 		case DISPLAYPORT:
 		case EDP: {
 			kbl_plane_disable(gpu, crtc);
-			kbl_transcoder_disable(gpu, crtc);
-			kbl_transcoder_ddi_disable(gpu, crtc);
+			kbl_transcoder_disable(gpu, crtc->transcoder);
+			kbl_transcoder_ddi_disable(gpu, crtc->transcoder);
 			kbl_pipe_scaler_disable(gpu, crtc);
 			kbl_transcoder_clock_disable(gpu, crtc);
 
@@ -268,13 +269,7 @@ void lil_kbl_commit_modeset(struct LilGpu* gpu, struct LilCrtc* crtc) {
 	REG(PP_CONTROL) &= ~8;
 
 	uint32_t link_rate = link_rate_mhz / 10;
-
-	uint32_t bpp;
-	if(con->type == EDP) {
-		bpp = enc->edp.edp_color_depth;
-	} else {
-		bpp = crtc->current_mode.bpp;
-	}
+	uint32_t bpp = crtc->current_mode.bpp;
 
 	kbl_edp_validate_clocks_for_bpp(gpu, crtc, max_lanes, link_rate, &bpp);
 
@@ -354,6 +349,7 @@ void lil_kbl_commit_modeset(struct LilGpu* gpu, struct LilCrtc* crtc) {
 		if(!kbl_edp_link_training(gpu, crtc, enc->dp.dp_max_link_rate, enc->dp.dp_lane_count))
 			lil_panic("DP link training failed");
 	}
+
 	REG(DP_TP_CTL(con->ddi_id)) = (REG(DP_TP_CTL(con->ddi_id)) & 0xFFFFF8FF) | 0x300;
 	kbl_transcoder_configure_clock(gpu, crtc);
 	kbl_pipe_src_size_set(gpu, crtc);
@@ -362,13 +358,10 @@ void lil_kbl_commit_modeset(struct LilGpu* gpu, struct LilCrtc* crtc) {
 	kbl_unmask_vblank(gpu, crtc);
 	kbl_transcoder_timings_configure(gpu, crtc);
 	kbl_transcoder_bpp_set(gpu, crtc, bpp);
-	// kbl_pipe_dithering_enable(gpu, crtc, bpp);
-	kbl_transcoder_configure_m_n(gpu, crtc, crtc->current_mode.clock, link_rate, max_lanes, bpp, enc->edp.edp_downspread);
+	kbl_pipe_dithering_enable(gpu, crtc, bpp);
+	kbl_transcoder_configure_m_n(gpu, crtc, crtc->current_mode.clock, link_rate, max_lanes, bpp);
 	kbl_transcoder_ddi_polarity_setup(gpu, crtc);
-
-	/* TODO: while setting this is correct, it garbles the output for unknown reasons */
-	// kbl_transcoder_set_dp_msa_misc(gpu, crtc, bpp);
-
+	kbl_transcoder_set_dp_msa_misc(gpu, crtc, bpp);
 	kbl_transcoder_ddi_setup(gpu, crtc, max_lanes);
 	kbl_transcoder_enable(gpu, crtc);
 	if(crtc->planes[0].enabled)

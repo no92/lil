@@ -6,9 +6,9 @@
 #include "lil/vbt-types.h"
 #include "src/pci.h"
 #include "src/regs.h"
-#include "src/kaby_lake/inc/gtt.h"
-#include "src/kaby_lake/inc/kbl.h"
-#include "src/kaby_lake/inc/pch.h"
+#include "src/kaby_lake/gtt.h"
+#include "src/kaby_lake/kbl.h"
+#include "src/kaby_lake/pch.h"
 
 static struct {
 	uint8_t select;
@@ -106,8 +106,8 @@ void lil_kbl_setup(LilGpu *gpu) {
 	/* TODO: on cold boot, perform the display init sequence */
 	// Disable every transcoder
 	for(LilTranscoder transcoder = TRANSCODER_A; transcoder <= TRANSCODER_C; transcoder++) {
-		kbl_transcoder_disable_by_id(gpu, transcoder);
-		kbl_transcoder_ddi_disable_by_id(gpu, transcoder);
+		kbl_transcoder_disable(gpu, transcoder);
+		kbl_transcoder_ddi_disable(gpu, transcoder);
 		kbl_transcoder_clock_disable_by_id(gpu, transcoder);
 	}
 

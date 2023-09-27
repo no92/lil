@@ -1,7 +1,7 @@
 #include <lil/imports.h>
 #include <lil/intel.h>
 
-#include "src/kaby_lake/inc/kbl.h"
+#include "src/kaby_lake/kbl.h"
 
 static uint16_t SKYLAKE_IDS[12] = { 0x1902, 0x1912, 0x1932, 0x193A, 0x190B, 0x191B, 0x192B, 0x193B, 0x191D, 0x192D, 0x193D, 0 };
 static uint16_t SKYLAKE_ULT_IDS[8] = { 0x1906, 0x1916, 0x1926, 0x1927, 0x1913, 0x1923, 0x1921, 0 };

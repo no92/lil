@@ -3,31 +3,11 @@
 #include <lil/intel.h>
 #include <lil/imports.h>
 
-#include "src/kaby_lake/inc/dpcd.h"
+#include "src/kaby_lake/dp-aux.h"
+#include "src/dpcd.h"
 #include "src/edid.h"
 #include "src/gmbus.h"
 #include "src/regs.h"
-
-#define NO_AUX_HANDSHAKE_LINK_TRAINING (1 << 6)
-
-#define DPCD_POWER_D0 1
-#define DPCD_POWER_D3 2
-
-#define MG_DP_X1 (1 << 6)
-#define MG_DP_X2 (1 << 7)
-
-static inline uint64_t get_fia_base(uint32_t fia) {
-    switch (fia) {
-        case 1: return 0x163000;
-        case 2: return 0x16E000;
-        case 3: return 0x16F000;
-        default: lil_panic("Unknown FIA");
-    }
-}
-
-#define PORT_TX_DFLEXPA(fia) (get_fia_base(fia) + 0x880)
-#define DP_PIN_ASSIGN_SHIFT(i) ((i) * 4)
-#define DP_PIN_ASSIGN_MASK(i) (0xF << ((i) * 4))
 
 typedef struct AuxRequest {
     uint8_t request;
@@ -327,8 +307,10 @@ void dp_aux_read_edid(struct LilGpu* gpu, LilConnector *con, DisplayData* buf) {
     dp_aux_i2c_read(gpu, con, DDC_ADDR, EDID_SIZE, (uint8_t*)buf);
 }
 
+#define DP_DUAL_MODE_ADDR 0x40
+
 bool dp_dual_mode_read(LilGpu *gpu, LilConnector *con, uint8_t offset, void *buffer, size_t size) {
-	if(gmbus_read(gpu, con, 0x40, offset, size, (uint8_t*)(buffer)) != LilError::LIL_SUCCESS)
+	if(gmbus_read(gpu, con, DP_DUAL_MODE_ADDR, offset, size, (uint8_t*)(buffer)) != LilError::LIL_SUCCESS)
 		return false;
 
 	return true;

@@ -2,8 +2,8 @@
 #include <lil/imports.h>
 #include <lil/vbt.h>
 
-#include "src/ivy_bridge/inc/ivb.h"
-#include "src/kaby_lake/inc/kbl.h"
+#include "src/ivy_bridge/ivb.h"
+#include "src/kaby_lake/kbl.h"
 #include "src/pci.h"
 #include "src/regs.h"
 
