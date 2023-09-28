@@ -5,7 +5,7 @@
 #include "src/helpers.h"
 #include "src/regs.h"
 
-static uint32_t trans(LilTranscoder id) {
+uint32_t kbl_transcoder_base(LilTranscoder id) {
 	switch(id) {
 		case TRANSCODER_A: return TRANSCODER_A_BASE;
 		case TRANSCODER_B: return TRANSCODER_B_BASE;
@@ -16,16 +16,16 @@ static uint32_t trans(LilTranscoder id) {
 }
 
 void kbl_transcoder_enable(LilGpu *gpu, LilCrtc *crtc) {
-	REG(trans(crtc->transcoder) + TRANS_CONF) |= TRANS_CONF_ENABLE;
+	REG(kbl_transcoder_base(crtc->transcoder) + TRANS_CONF) |= TRANS_CONF_ENABLE;
 }
 
 void kbl_transcoder_disable(LilGpu *gpu, LilTranscoder transcoder) {
-	REG(trans(transcoder) + TRANS_CONF) &= ~TRANS_CONF_ENABLE;
-	wait_for_bit_unset(REG_PTR(trans(transcoder) + TRANS_CONF), TRANS_CONF_STATE, 21000, 1000);
+	REG(kbl_transcoder_base(transcoder) + TRANS_CONF) &= ~TRANS_CONF_ENABLE;
+	wait_for_bit_unset(REG_PTR(kbl_transcoder_base(transcoder) + TRANS_CONF), TRANS_CONF_STATE, 21000, 1000);
 }
 
 void kbl_transcoder_ddi_disable(LilGpu *gpu, LilTranscoder transcoder) {
-	REG(trans(transcoder) + TRANS_DDI_FUNC_CTL) &= ~(TRANS_DDI_FUNC_CTL_ENABLE | TRANS_DDI_FUNC_CTL_SELECT_DDI_MASK);
+	REG(kbl_transcoder_base(transcoder) + TRANS_DDI_FUNC_CTL) &= ~(TRANS_DDI_FUNC_CTL_ENABLE | TRANS_DDI_FUNC_CTL_SELECT_DDI_MASK);
 	if(gpu->subgen == SUBGEN_GEMINI_LAKE) {
 		// Quirk: delay for 100ms
 		lil_sleep(100);
@@ -43,7 +43,7 @@ void kbl_transcoder_clock_disable_by_id(LilGpu *gpu, LilTranscoder transcoder) {
 }
 
 void kbl_transcoder_configure_clock(LilGpu *gpu, LilCrtc *crtc) {
-	lil_assert((REG(trans(crtc->transcoder) + TRANS_CONF) & TRANS_CONF_ENABLE) == 0);
+	lil_assert((REG(kbl_transcoder_base(crtc->transcoder) + TRANS_CONF) & TRANS_CONF_ENABLE) == 0);
 
 	uint32_t val = 0;
 
@@ -65,14 +65,14 @@ void kbl_transcoder_configure_clock(LilGpu *gpu, LilCrtc *crtc) {
 void kbl_transcoder_timings_configure(LilGpu *gpu, LilCrtc *crtc) {
 	LilModeInfo *mode = &crtc->current_mode;
 
-	REG(trans(crtc->transcoder) + TRANS_HTOTAL) = ((mode->htotal - 1) << 16) | (mode->hactive - 1);
-	REG(trans(crtc->transcoder) + TRANS_HBLANK) = ((mode->htotal - 1) << 16) | (mode->hactive - 1);
-	REG(trans(crtc->transcoder) + TRANS_HSYNC) = ((mode->hsyncEnd - 1) << 16) | (mode->hsyncStart - 1);
-	REG(trans(crtc->transcoder) + TRANS_VTOTAL) = ((mode->vtotal - 1) << 16) | (mode->vactive - 1);
-	REG(trans(crtc->transcoder) + TRANS_VBLANK) = ((mode->vtotal - 1) << 16) | (mode->vactive - 1);
-	REG(trans(crtc->transcoder) + TRANS_VSYNC) = ((mode->vsyncEnd - 1) << 16) | (mode->vsyncStart - 1);
+	REG(kbl_transcoder_base(crtc->transcoder) + TRANS_HTOTAL) = ((mode->htotal - 1) << 16) | (mode->hactive - 1);
+	REG(kbl_transcoder_base(crtc->transcoder) + TRANS_HBLANK) = ((mode->htotal - 1) << 16) | (mode->hactive - 1);
+	REG(kbl_transcoder_base(crtc->transcoder) + TRANS_HSYNC) = ((mode->hsyncEnd - 1) << 16) | (mode->hsyncStart - 1);
+	REG(kbl_transcoder_base(crtc->transcoder) + TRANS_VTOTAL) = ((mode->vtotal - 1) << 16) | (mode->vactive - 1);
+	REG(kbl_transcoder_base(crtc->transcoder) + TRANS_VBLANK) = ((mode->vtotal - 1) << 16) | (mode->vactive - 1);
+	REG(kbl_transcoder_base(crtc->transcoder) + TRANS_VSYNC) = ((mode->vsyncEnd - 1) << 16) | (mode->vsyncStart - 1);
 
-	REG(trans(crtc->transcoder) + TRANS_CONF) &= ~TRANS_CONF_INTERLACED_MODE_MASK;
+	REG(kbl_transcoder_base(crtc->transcoder) + TRANS_CONF) &= ~TRANS_CONF_INTERLACED_MODE_MASK;
 
 	switch(crtc->pipe_id) {
 		case 0:
@@ -106,7 +106,7 @@ void kbl_transcoder_bpp_set(LilGpu *gpu, LilCrtc *crtc, uint8_t bpp) {
 			lil_panic("unsupported bpp");
 	}
 
-	REG(trans(crtc->transcoder) + TRANS_DDI_FUNC_CTL) = (REG(trans(crtc->transcoder) + TRANS_DDI_FUNC_CTL) & ~TRANS_DDI_FUNC_CTL_MODE_BPC_MASK) | val;
+	REG(kbl_transcoder_base(crtc->transcoder) + TRANS_DDI_FUNC_CTL) = (REG(kbl_transcoder_base(crtc->transcoder) + TRANS_DDI_FUNC_CTL) & ~TRANS_DDI_FUNC_CTL_MODE_BPC_MASK) | val;
 }
 
 void kbl_transcoder_set_dp_msa_misc(LilGpu *gpu, LilCrtc *crtc, uint8_t bpp) {
@@ -132,27 +132,27 @@ void kbl_transcoder_set_dp_msa_misc(LilGpu *gpu, LilCrtc *crtc, uint8_t bpp) {
 			lil_panic("unsupported bpp");
 	}
 
-	REG(trans(crtc->transcoder) + TRANS_MSA_MISC) = val | DP_MSA_MISC_SYNC_CLOCK;
+	REG(kbl_transcoder_base(crtc->transcoder) + TRANS_MSA_MISC) = val | DP_MSA_MISC_SYNC_CLOCK;
 }
 
 void kbl_transcoder_ddi_polarity_setup(LilGpu *gpu, LilCrtc *crtc) {
 	if(crtc->current_mode.hsyncPolarity && crtc->current_mode.vsyncPolarity) {
-		uint32_t val = REG(trans(crtc->transcoder) + TRANS_DDI_FUNC_CTL);
+		uint32_t val = REG(kbl_transcoder_base(crtc->transcoder) + TRANS_DDI_FUNC_CTL);
 
 		if(crtc->current_mode.hsyncPolarity == 2)
 			val |= TRANS_DDI_FUNC_CTL_HSYNC;
 		else
 			val &= ~TRANS_DDI_FUNC_CTL_HSYNC;
 
-		REG(trans(crtc->transcoder) + TRANS_DDI_FUNC_CTL) = val;
-		val = REG(trans(crtc->transcoder) + TRANS_DDI_FUNC_CTL);
+		REG(kbl_transcoder_base(crtc->transcoder) + TRANS_DDI_FUNC_CTL) = val;
+		val = REG(kbl_transcoder_base(crtc->transcoder) + TRANS_DDI_FUNC_CTL);
 
 		if(crtc->current_mode.vsyncPolarity == 2)
 			val |= TRANS_DDI_FUNC_CTL_VSYNC;
 		else
 			val &= ~TRANS_DDI_FUNC_CTL_VSYNC;
 
-		REG(trans(crtc->transcoder) + TRANS_DDI_FUNC_CTL) = val;
+		REG(kbl_transcoder_base(crtc->transcoder) + TRANS_DDI_FUNC_CTL) = val;
 	}
 }
 
@@ -177,7 +177,7 @@ void kbl_transcoder_ddi_setup(LilGpu *gpu, LilCrtc *crtc, uint32_t lanes) {
 			break;
 	}
 
-	REG(trans(crtc->transcoder) + TRANS_DDI_FUNC_CTL) = (REG(trans(crtc->transcoder) + TRANS_DDI_FUNC_CTL) & 0x8FFFFFFF) | val;
+	REG(kbl_transcoder_base(crtc->transcoder) + TRANS_DDI_FUNC_CTL) = (REG(kbl_transcoder_base(crtc->transcoder) + TRANS_DDI_FUNC_CTL) & 0x8FFFFFFF) | val;
 
 	if(crtc->transcoder == TRANSCODER_EDP) {
 		switch(crtc->pipe_id) {
@@ -199,11 +199,11 @@ void kbl_transcoder_ddi_setup(LilGpu *gpu, LilCrtc *crtc, uint32_t lanes) {
 
 	switch(crtc->connector->type) {
 		case HDMI:
-			REG(trans(crtc->transcoder) + TRANS_DDI_FUNC_CTL) = (REG(trans(crtc->transcoder) + TRANS_DDI_FUNC_CTL) & ~TRANS_DDI_FUNC_CTL_MODE_SELECT_MASK) | TRANS_DDI_FUNC_CTL_MODE_SELECT_HDMI;
+			REG(kbl_transcoder_base(crtc->transcoder) + TRANS_DDI_FUNC_CTL) = (REG(kbl_transcoder_base(crtc->transcoder) + TRANS_DDI_FUNC_CTL) & ~TRANS_DDI_FUNC_CTL_MODE_SELECT_MASK) | TRANS_DDI_FUNC_CTL_MODE_SELECT_HDMI;
 			break;
 		case DISPLAYPORT:
 		case EDP:
-			REG(trans(crtc->transcoder) + TRANS_DDI_FUNC_CTL) = (REG(trans(crtc->transcoder) + TRANS_DDI_FUNC_CTL) & ~TRANS_DDI_FUNC_CTL_MODE_SELECT_MASK) | TRANS_DDI_FUNC_CTL_MODE_SELECT_DP_SST;
+			REG(kbl_transcoder_base(crtc->transcoder) + TRANS_DDI_FUNC_CTL) = (REG(kbl_transcoder_base(crtc->transcoder) + TRANS_DDI_FUNC_CTL) & ~TRANS_DDI_FUNC_CTL_MODE_SELECT_MASK) | TRANS_DDI_FUNC_CTL_MODE_SELECT_DP_SST;
 			break;
 		default:
 			lil_panic("unimplemented connector type");
@@ -225,9 +225,9 @@ void kbl_transcoder_ddi_setup(LilGpu *gpu, LilCrtc *crtc, uint32_t lanes) {
 			lil_panic("invalid lane count");
 	}
 
-	REG(trans(crtc->transcoder) + TRANS_DDI_FUNC_CTL) = (REG(trans(crtc->transcoder) + TRANS_DDI_FUNC_CTL) & ~TRANS_DDI_FUNC_CTL_MODE_MASK) | val;
+	REG(kbl_transcoder_base(crtc->transcoder) + TRANS_DDI_FUNC_CTL) = (REG(kbl_transcoder_base(crtc->transcoder) + TRANS_DDI_FUNC_CTL) & ~TRANS_DDI_FUNC_CTL_MODE_MASK) | val;
 trans_ddi_enable:
-	REG(trans(crtc->transcoder) + TRANS_DDI_FUNC_CTL) |= TRANS_DDI_FUNC_CTL_ENABLE;
+	REG(kbl_transcoder_base(crtc->transcoder) + TRANS_DDI_FUNC_CTL) |= TRANS_DDI_FUNC_CTL_ENABLE;
 }
 
 static void compute_m_n(uint32_t *ret_m, uint32_t *ret_n, uint32_t m, uint32_t n, uint32_t constant_n) {
@@ -254,8 +254,8 @@ void kbl_transcoder_configure_m_n(LilGpu *gpu, LilCrtc *crtc, uint32_t pixel_clo
 	compute_m_n(&data_m, &data_n, (bits_per_pixel * strm_clk), ls_clk * lanes * 8, 0x8000000);
 	compute_m_n(&link_m, &link_n, strm_clk, ls_clk, 0x80000);
 
-	REG(trans(crtc->transcoder) + TRANS_DATAM) = data_m | (63 << 25);
-	REG(trans(crtc->transcoder) + TRANS_DATAN) = data_n;
-	REG(trans(crtc->transcoder) + TRANS_LINKM) = link_m;
-	REG(trans(crtc->transcoder) + TRANS_LINKN) = link_n;
+	REG(kbl_transcoder_base(crtc->transcoder) + TRANS_DATAM) = data_m | (63 << 25);
+	REG(kbl_transcoder_base(crtc->transcoder) + TRANS_DATAN) = data_n;
+	REG(kbl_transcoder_base(crtc->transcoder) + TRANS_LINKM) = link_m;
+	REG(kbl_transcoder_base(crtc->transcoder) + TRANS_LINKN) = link_n;
 }

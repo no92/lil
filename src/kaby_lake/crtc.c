@@ -132,8 +132,8 @@ void lil_kbl_crtc_dp_shutdown(LilGpu *gpu, LilCrtc *crtc) {
 			kbl_pipe_scaler_disable(gpu, crtc);
 			kbl_transcoder_clock_disable(gpu, crtc);
 
-			REG(DDI_BUF_CTL(crtc->connector->ddi_id)) &= ~0x10000;
-			REG(DDI_BUF_CTL(crtc->connector->ddi_id)) &= ~0x80000000;
+			REG(DDI_BUF_CTL(crtc->connector->ddi_id)) &= ~DDI_BUF_CTL_PORT_REVERSAL;
+			REG(DDI_BUF_CTL(crtc->connector->ddi_id)) &= ~DDI_BUF_CTL_ENABLE;
 
 			kbl_ddi_balance_leg_set(gpu, crtc->connector->ddi_id, 0);
 
@@ -182,7 +182,7 @@ void lil_kbl_commit_modeset(struct LilGpu* gpu, struct LilCrtc* crtc) {
 	if(crtc->planes[0].enabled)
 		kbl_plane_enable(gpu, crtc, false);
 
-	REG(PRI_CTL(crtc->pipe_id)) = (REG(PRI_CTL(crtc->pipe_id)) & 0xF0FFFFFF) | 0x4000000;
+	REG(PLANE_CTL(crtc->pipe_id)) = (REG(PLANE_CTL(crtc->pipe_id)) & 0xF0FFFFFF) | 0x4000000;
 
 	uint8_t link_rate_index = 0;
 
@@ -273,69 +273,56 @@ void lil_kbl_commit_modeset(struct LilGpu* gpu, struct LilCrtc* crtc) {
 
 	kbl_edp_validate_clocks_for_bpp(gpu, crtc, max_lanes, link_rate, &bpp);
 
-	if(REG(DP_TP_CTL(con->ddi_id)) & (1 << 31)) {
-		uint32_t dp_tp_ctl_val = (REG(DP_TP_CTL(con->ddi_id)) & 0xFFFFF8FF) | 0x200;
+	if(REG(DP_TP_CTL(con->ddi_id)) & DP_TP_CTL_ENABLE) {
+		uint32_t dp_tp_ctl_val = (REG(DP_TP_CTL(con->ddi_id)) & 0xFFFFF8FF) | DP_TP_CTL_TRAIN_PATTERN_IDLE;
 		REG(DP_TP_CTL(con->ddi_id)) = dp_tp_ctl_val;
 		lil_usleep(17000);
-		REG(DP_TP_CTL(con->ddi_id)) = dp_tp_ctl_val & 0x7FFFFFFF;
+		REG(DP_TP_CTL(con->ddi_id)) = dp_tp_ctl_val & ~DP_TP_CTL_ENABLE;
 	}
 
 	kbl_dpll_ctrl_enable(gpu, crtc, link_rate);
 
 	if(max_lanes == 4)
-		REG(DDI_BUF_CTL(con->ddi_id)) |= 0x10;
+		REG(DDI_BUF_CTL(con->ddi_id)) |= DDI_BUF_CTL_DDI_A_4_LANES;
 
 	kbl_dpll_clock_set(gpu, crtc);
 	kbl_ddi_power_enable(gpu, crtc);
 
 	uint32_t dp_tp_ctl_flags = 0;
 
-	if(con->type == EDP) {
-		if(enc->edp.edp_lane_count & 0x80) {
-			dp_tp_ctl_flags = 0x40000;
-		}
-	}
+	if(con->type == EDP && enc->edp.edp_lane_count & 0x80)
+		dp_tp_ctl_flags = DP_TP_CTL_ENHANCED_FRAMING_ENABLE;
 
 	REG(DP_TP_CTL(con->ddi_id)) = dp_tp_ctl_flags | (REG(DP_TP_CTL(con->ddi_id)) & 0xFFFBF8FF);
-	REG(DP_TP_CTL(con->ddi_id)) |= (1 << 31);
-	REG(DDI_BUF_CTL(con->ddi_id)) = (2 * max_lanes - 2) | (REG(DDI_BUF_CTL(con->ddi_id)) & 0xFFFFFFF1);
+	REG(DP_TP_CTL(con->ddi_id)) |= DP_TP_CTL_ENABLE;
+	REG(DDI_BUF_CTL(con->ddi_id)) = DDI_BUF_CTL_DP_PORT_WIDTH(max_lanes) | (REG(DDI_BUF_CTL(con->ddi_id)) & ~DDI_BUF_CTL_DP_PORT_WIDTH_MASK);
 
 	if(con->type == EDP) {
 		uint32_t dispio_cr_tx_bmu_cr0 = 0;
 
 		if(enc->edp.edp_port_reversal) {
-			REG(DDI_BUF_CTL(con->ddi_id)) |= 0x10000;
+			REG(DDI_BUF_CTL(con->ddi_id)) |= DDI_BUF_CTL_PORT_REVERSAL;
 		}
+
+		uint8_t balance_leg = 0;
 
 		if(enc->edp.edp_iboost) {
-			kbl_ddi_balance_leg_set(gpu, con->ddi_id, enc->edp.edp_balance_leg_val);
-
-			if(max_lanes == 4)
-				dispio_cr_tx_bmu_cr0 = (REG(DISPIO_CR_TX_BMU_CR0) & 0xFF8FFFFF) | (enc->edp.edp_balance_leg_val << 20);
+			balance_leg = enc->edp.edp_balance_leg_val;
 		} else if(enc->edp.edp_vswing_preemph == 1) {
 			if(gpu->variant == ULX && gpu->gen == GEN_KBL) {
-				kbl_ddi_balance_leg_set(gpu, con->ddi_id, 3);
-
-				if(max_lanes == 4)
-					dispio_cr_tx_bmu_cr0 = (REG(DISPIO_CR_TX_BMU_CR0) & 0xFF8FFFFF) | 0x300000;
+				balance_leg = 3;
 			} else {
-				kbl_ddi_balance_leg_set(gpu, con->ddi_id, 1);
-
-				if(max_lanes == 4)
-					dispio_cr_tx_bmu_cr0 = (REG(DISPIO_CR_TX_BMU_CR0) & 0xFF8FFFFF) | 0x100000;
+				balance_leg = 1;
 			}
-		} else {
-			kbl_ddi_balance_leg_set(gpu, con->ddi_id, 0);
-
-			if(max_lanes == 4)
-				dispio_cr_tx_bmu_cr0 = (REG(DISPIO_CR_TX_BMU_CR0) & 0xFF8FFFFF);
 		}
 
-		if(dispio_cr_tx_bmu_cr0)
-			REG(DISPIO_CR_TX_BMU_CR0) = dispio_cr_tx_bmu_cr0;
+		kbl_ddi_balance_leg_set(gpu, con->ddi_id, balance_leg);
+
+		if(max_lanes == 4)
+			REG(DISPIO_CR_TX_BMU_CR0) = (REG(DISPIO_CR_TX_BMU_CR0) & ~DISPIO_CR_TX_BMU_CR0_DDI_BALANCE_LEG_MASK(DDI_E)) | DISPIO_CR_TX_BMU_CR0_DDI_BALANCE_LEG(DDI_E, balance_leg);
 	}
 
-	REG(DDI_BUF_CTL(con->ddi_id)) |= (1 << 31);
+	REG(DDI_BUF_CTL(con->ddi_id)) |= DDI_BUF_CTL_ENABLE;
 	lil_usleep(518);
 
 	if(con->type == EDP) {

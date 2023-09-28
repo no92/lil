@@ -4,4 +4,4 @@ url = https://github.com/Matt8898/lil
 revision = master
 
 [provide]
-lil = dependency
+lil_dep = dependency

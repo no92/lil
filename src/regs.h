@@ -16,6 +16,14 @@
 #define FUSE_STATUS_PG1 (1 << 26)
 #define FUSE_STATUS_PG2 (1 << 25)
 
+#define CHICKEN_TRANS_A 0x420C0
+#define CHICKEN_TRANS_B 0x420C4
+#define CHICKEN_TRANS_C 0x420C8
+#define CHICKEN_TRANS_D 0x420D8
+#define CHICKEN_TRANS_EDP 0x420CC
+#define CHICKEN_TRANS_DDI_TRAINING_OVERRIDE_VALUE (1 << 18)
+#define CHICKEN_TRANS_DDI_TRAINING_OVERRIDE_ENABLE (1 << 19)
+
 #define ISR(i) (0x44400 + ((i) * 0x10))
 #define IMR(i) (0x44404 + ((i) * 0x10))
 #define IIR(i) (0x44408 + ((i) * 0x10))
@@ -90,7 +98,11 @@
 #define TRANS_DATAN 0x34
 #define TRANS_LINKM 0x40
 #define TRANS_LINKN 0x44
+#define VIDEO_DIP_CTL 0x200
+#define VIDEO_DIP_CTL_ENABLE_AVI (1 << 12)
+
 #define TRANS_MULT 0x210
+#define VIDEO_DIP_AVI_DATA(idx) (0x220 + (4 * idx))
 
 #define TRANS_DDI_FUNC_CTL 0x400
 #define TRANS_DDI_FUNC_CTL_ENABLE (1 << 31)
@@ -137,16 +149,14 @@
 
 #define PIPE_SRCSZ(pipe) (0x6001C + ((pipe) * 0x1000))
 
-// #define VIDEO_DIP_CTL(transcoder) (((transcoder) == TRANSCODER_EDP) ? 0x6F200 : (0xre60200 + ((transcoder) * 0x1000)))
-#define VIDEO_DIP_CTL(ddi) (0x60200 + ((ddi) * 0x1000))
-#define VIDEO_DIP_AVI_DATA(ddi) (0x60220 + ((ddi) * 0x1000))
-
 #define DDI_BUF_CTL(i) (0x64000 + ((i) * 0x100))
 #define DDI_BUF_CTL_ENABLE (1 << 31)
+#define DDI_BUF_CTL_PORT_REVERSAL (1 << 16)
 #define DDI_BUF_CTL_IDLE (1 << 7)
+#define DDI_BUF_CTL_DDI_A_4_LANES (1 << 4)
+#define DDI_BUF_CTL_DP_PORT_WIDTH_MASK (0b111 << 1)
+#define DDI_BUF_CTL_DP_PORT_WIDTH(lanes) ((lanes - 1) << 1)
 #define DDI_BUF_CTL_DISPLAY_DETECTED (1 << 0)
-
-#define DDI_BUF_CTL_DP_PORT_WIDTH(v) (((v) >> 1) & 0x7)
 
 #define DDI_AUX_CTL(c) (0x64010 + ((c) * 0x100))
 #define DDI_AUX_CTL_BUSY (1u << 31)
@@ -170,7 +180,8 @@
 #define DDI_AUX_NATIVE_READ 0x9
 
 #define DP_TP_CTL(i) (0x64040 + ((i) * 0x100))
-#define DP_TP_CTL_ENABLE (1u << 31)
+#define DP_TP_CTL_ENABLE (1 << 31)
+#define DP_TP_CTL_ENHANCED_FRAMING_ENABLE (1 << 18)
 #define DP_TP_CTL_TRAIN_MASK (7 << 8)
 #define DP_TP_CTL_TRAIN_PATTERN1 (0 << 8)
 #define DP_TP_CTL_TRAIN_PATTERN2 (1 << 8)
@@ -189,6 +200,8 @@
 #define PS_WIN_SZ_2(i) (0x68274 + (0x800 * i))
 
 #define DISPIO_CR_TX_BMU_CR0 0x6C00C
+#define DISPIO_CR_TX_BMU_CR0_DDI_BALANCE_LEG_MASK(ddi) (0b111 << (8 + ((ddi) * 3)))
+#define DISPIO_CR_TX_BMU_CR0_DDI_BALANCE_LEG(ddi, b) ((b) << (8 + ((ddi) * 3)))
 
 #define DPLL_CFGCR1(pll) (0x6C040 + ((pll - LCPLL2) * 8))
 #define DPLL_CFGCR2(pll) (0x6C044 + ((pll - LCPLL2) * 8))
@@ -212,7 +225,26 @@
 #define DPLL_STATUS_LOCK(i) (1 << ((i) * 8))
 
 #define PIPE_MISC(i) (0x70030 + (0x1000 * i))
-#define PRI_CTL(i) (0x70180 + (0x1000 * i))
+#define PIPE_MISC_DITHERING_BPC_MASK (0b111 << 5)
+#define PIPE_MISC_DITHERING_6_BPC (0b010 << 5)
+#define PIPE_MISC_DITHERING_8_BPC (0b000 << 5)
+#define PIPE_MISC_DITHERING_10_BPC (0b001 << 5)
+#define PIPE_MISC_DITHERING_12_BPC (0b100 << 5)
+#define PIPE_MISC_DITHERING_ENABLE (1 << 4)
+#define PIPE_MISC_DITHERING_TYPE_MASK (0b11 << 2)
+#define PIPE_MISC_DITHERING_TYPE_SPATIAL (0b00 << 2)
+#define PIPE_MISC_DITHERING_TYPE_ST1 (0b01 << 2)
+#define PIPE_MISC_DITHERING_TYPE_ST2 (0b10 << 2)
+#define PIPE_MISC_DITHERING_TYPE_TEMPORAL (0b11 << 2)
+
+#define PLANE_CTL(i) (0x70180 + (0x1000 * i))
+#define PLANE_CTL_ENABLE (1 << 31)
+#define PLANE_CTL_GAMMA_ENABLE (1 << 30)
+#define PLANE_CTL_SOURCE_PIXEL_FORMAT_RGB_8_8_8_8 (0b0100 << 24)
+#define PLANE_CTL_COLOR_ORDER_BGRX (0 << 20)
+#define PLANE_CTL_COLOR_ORDER_RGBX (1 << 20)
+#define PLANE_CTL_INTERNAL_GAMMA_DISABLE (1 << 13)
+
 #define DSP_ADDR(i) (0x70184 + (0x1000 * i))
 #define PRI_STRIDE(i) (0x70188 + (0x1000 * i))
 #define PLANE_POS(i) (0x7018C + (0x1000 * i))

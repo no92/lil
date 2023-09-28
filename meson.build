@@ -1,5 +1,9 @@
 project('lil', ['c', 'cpp'], default_options: ['warning_level=2'])
 
+if meson.get_compiler('cpp').get_id() != 'gcc' or meson.get_compiler('cpp').version().version_compare('<13')
+	error('At least GCC G++ 13 is needed to compile lil.')
+endif
+
 add_project_arguments(['-Wno-unused-function', '-Wno-unused-variable', '-Wno-unused-parameter', '-Wimplicit-fallthrough'], language: ['c', 'cpp'])
 add_project_arguments(['-Werror=incompatible-pointer-types'], language: ['c'])
 add_project_arguments(['-std=gnu++2b'], language: ['cpp'])
@@ -19,6 +23,7 @@ sources = files(
     'src/ivy_bridge/ivb.c',
     'src/ivy_bridge/plane.c',
 
+    'src/kaby_lake/avi.c',
     'src/kaby_lake/cdclk.c',
     'src/kaby_lake/crtc.c',
     'src/kaby_lake/ddi.c',

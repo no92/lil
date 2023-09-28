@@ -98,7 +98,7 @@ void kbl_dump_registers(LilGpu* gpu) {
 			LilPlane* plane = con->crtc->planes + idx_con_plane;
 			char plane_char = (char)('A' + plane->pipe_id);
 			lil_log(VERBOSE, "\tplane %c:\n", plane_char);
-			lil_log(VERBOSE, "\t\t0x%08x 0x%08x (DSP%cCNTR)\n", PRI_CTL(plane->pipe_id), REG(PRI_CTL(plane->pipe_id)), plane_char);
+			lil_log(VERBOSE, "\t\t0x%08x 0x%08x (DSP%cCNTR)\n", PLANE_CTL(plane->pipe_id), REG(PLANE_CTL(plane->pipe_id)), plane_char);
 			lil_log(VERBOSE, "\t\t0x%08x 0x%08x (DSP%cSTRIDE)\n", PRI_STRIDE(plane->pipe_id), REG(PRI_STRIDE(plane->pipe_id)), plane_char);
 			lil_log(VERBOSE, "\t\t0x%08x 0x%08x (PLANE_POS_1_%c)\n", PLANE_POS(plane->pipe_id), REG(PLANE_POS(plane->pipe_id)), plane_char);
 			lil_log(VERBOSE, "\t\t0x%08x 0x%08x (PLANE_SIZE_1_%c)\n", PLANE_SIZE(plane->pipe_id), REG(PLANE_SIZE(plane->pipe_id)), plane_char);
@@ -259,4 +259,14 @@ static void run_testcase(LilGpu *gpu, struct testcase *t, const char *name) {
 void lil_testcase(LilGpu *gpu) {
 	// run_testcase(gpu, kaby_lake_edp_hdmi, "Kaby Lake eDP + HDMI");
 	// run_testcase(gpu, kaby_lake_edp, "Kaby Lake eDP");
+}
+
+uint16_t lil_brightness_get(LilGpu *gpu, LilConnector *con) {
+	return REG(BLC_PWM_DATA) & 0xFFFF;
+}
+
+void lil_brightness_set(LilGpu *gpu, LilConnector *con, uint16_t level) {
+	uint32_t reg = REG(BLC_PWM_DATA);
+
+	REG(BLC_PWM_DATA) = (reg & 0xFFFF0000) | level;
 }

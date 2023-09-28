@@ -24,8 +24,6 @@ void kbl_plane_page_flip(LilGpu *gpu, LilCrtc *crtc) {
 	REG(PRI_SURFACE(crtc->pipe_id)) = REG(PRI_SURFACE(crtc->pipe_id));
 }
 
-// TODO(CLEAN;BIT): this function needs to be cleaned up
-// 					specifically, we should be using enums or defines for this bit setting/clearing
 void kbl_plane_enable(LilGpu *gpu, LilCrtc *crtc, bool vblank_wait) {
 	uint32_t htotal = crtc->current_mode.htotal;
 	uint32_t pixel_clock = crtc->current_mode.clock;
@@ -40,11 +38,11 @@ void kbl_plane_enable(LilGpu *gpu, LilCrtc *crtc, bool vblank_wait) {
 	uint32_t lines = (wm + pitch - 1) / pitch;
 	uint32_t blocks = ((wm + 511) >> 9) + 1;
 
-	// REG(PLANE_WM_1(crtc->pipe_id)) = blocks | ((lines | 0xFFFE0000) << 14);
 	// TODO(CLEAN): what is this?
 	REG(PLANE_WM_1(crtc->pipe_id)) = 0x800080A0;
+	// REG(PLANE_WM_1(crtc->pipe_id)) = blocks | ((lines | 0xFFFE0000) << 14);
 
-	REG(PRI_CTL(crtc->pipe_id)) |= (1 << 31) | (1 << 13) | (1 << 26) | (1 << 20);
+	REG(PLANE_CTL(crtc->pipe_id)) |= PLANE_CTL_ENABLE | PLANE_CTL_INTERNAL_GAMMA_DISABLE | PLANE_CTL_SOURCE_PIXEL_FORMAT_RGB_8_8_8_8 | PLANE_CTL_COLOR_ORDER_RGBX;
 
 	kbl_plane_page_flip(gpu, crtc);
 
@@ -52,10 +50,8 @@ void kbl_plane_enable(LilGpu *gpu, LilCrtc *crtc, bool vblank_wait) {
 		wait_for_vblank(gpu, &crtc->planes[0]);
 }
 
-// TODO(CLEAN;BIT): this function needs to be cleaned up
-// 					specifically, we should be using enums or defines for this bit setting/clearing
 void kbl_plane_disable(LilGpu *gpu, LilCrtc *crtc) {
-	REG(PRI_CTL(crtc->pipe_id)) &= ~(1 << 31);
+	REG(PLANE_CTL(crtc->pipe_id)) &= ~PLANE_CTL_ENABLE;
 
 	kbl_plane_page_flip(gpu, crtc);
 	wait_for_vblank(gpu, &crtc->planes[0]);

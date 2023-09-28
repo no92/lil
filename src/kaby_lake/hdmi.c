@@ -100,12 +100,6 @@ bool kbl_hdmi_pre_enable(LilGpu *gpu, LilConnector *con) {
 
 		kbl_ddi_buffer_setup_translations(gpu, con, DDI_BUF_CTL(con->crtc->pipe_id));
 
-		// uint32_t *trans_table = (void *) HDMI_DDI_TRANS_TABLE;
-		// REG(DDI_BUF_TRANS(con->ddi_id)) = trans_table[2 * con->encoder->hdmi.hdmi_level_shift];
-		// if(con->encoder->hdmi.iboost)
-		// 	REG(DDI_BUF_TRANS(con->ddi_id)) |= 0x80000000;
-		// REG(DDI_BUF_TRANS(con->ddi_id) + 4) = trans_table[(2 * con->encoder->hdmi.hdmi_level_shift) + 1];
-
 		/* TODO: HPD */
 	}
 
@@ -159,15 +153,15 @@ void lil_kbl_hdmi_shutdown(LilGpu *gpu, LilCrtc *crtc) {
 
 	lil_assert(con->type == HDMI);
 
-	REG(VIDEO_DIP_CTL(con->ddi_id)) &= ~0x1000;
+	REG(kbl_transcoder_base(crtc->transcoder) + VIDEO_DIP_CTL) &= ~VIDEO_DIP_CTL_ENABLE_AVI;
 	kbl_plane_disable(gpu, crtc);
 	kbl_transcoder_disable(gpu, crtc->transcoder);
 	kbl_transcoder_ddi_disable(gpu, crtc->transcoder);
 	kbl_pipe_scaler_disable(gpu, crtc);
 	kbl_transcoder_clock_disable(gpu, crtc);
-	if(DDI_BUF_CTL(con->ddi_id) & 0x10000)
-		REG(DDI_BUF_CTL(con->ddi_id)) &= ~0x10000;
-	REG(DDI_BUF_CTL(con->ddi_id)) &= ~0x80000000;
+	if(DDI_BUF_CTL(con->ddi_id) & DDI_BUF_CTL_PORT_REVERSAL)
+		REG(DDI_BUF_CTL(con->ddi_id)) &= ~DDI_BUF_CTL_PORT_REVERSAL;
+	REG(DDI_BUF_CTL(con->ddi_id)) &= ~DDI_BUF_CTL_ENABLE;
 	kbl_ddi_balance_leg_set(gpu, con->ddi_id, 0);
 	lil_usleep(10);
 	kbl_ddi_power_disable(gpu, con);
@@ -179,26 +173,13 @@ static void kbl_unmask_vblank(LilGpu *gpu, LilCrtc *crtc) {
 	REG(IMR(crtc->pipe_id)) &= ~1;
 }
 
-// TODO(CLEAN;SEPERATE)	this should be in a header
-#define DIV_ROUND_CLOSEST(x, divisor)(			\
-{							\
-	typeof(x) __x = x;				\
-	typeof(divisor) __d = divisor;			\
-	(((typeof(x))-1) > 0 ||				\
-	 ((typeof(divisor))-1) > 0 ||			\
-	 (((__x) > 0) == ((__d) > 0))) ?		\
-		(((__x) + ((__d) / 2)) / (__d)) :	\
-		(((__x) - ((__d) / 2)) / (__d));	\
-}							\
-)
-
 static uint32_t kbl_chicken_trans_reg_for_port(LilCrtc *crtc) {
 	switch(crtc->transcoder) {
-		case TRANSCODER_A: return 0x420C0;
-		case TRANSCODER_B: return 0x420C4;
-		case TRANSCODER_C: return 0x420C8;
-		// case TRANSCODER_D: return 0x420D8;
-		case TRANSCODER_EDP: return 0x420CC;
+		case TRANSCODER_A: return CHICKEN_TRANS_A;
+		case TRANSCODER_B: return CHICKEN_TRANS_B;
+		case TRANSCODER_C: return CHICKEN_TRANS_C;
+		// case TRANSCODER_D: return CHICKEN_TRANS_D;
+		case TRANSCODER_EDP: return CHICKEN_TRANS_EDP;
 		default: lil_panic("unhandled transcoder");
 	}
 }
@@ -227,12 +208,7 @@ void lil_kbl_hdmi_commit_modeset(LilGpu *gpu, LilCrtc *crtc) {
 	uint32_t pitch = (crtc->current_mode.hactive * 4 + 63) & 0xFFFFFFC0;
 	uint32_t linetime = (8000 * htotal + pixel_clock - 1) / pixel_clock;
 
-	REG(PRI_CTL(crtc->pipe_id)) = (REG(PRI_CTL(crtc->pipe_id)) & 0xF0FFFFFF) | 0x4000000;
-
-	lil_log(INFO, "ddi_id %u\n", con->ddi_id);
-	lil_log(INFO, "pll_id %u\n", crtc->pll_id);
-	lil_log(INFO, "pipe_id %u\n", crtc->pipe_id);
-	lil_log(INFO, "transcoder %u\n", crtc->transcoder);
+	REG(PLANE_CTL(crtc->pipe_id)) = (REG(PLANE_CTL(crtc->pipe_id)) & 0xF0FFFFFF) | 0x4000000;
 
 	kbl_dpll_ctrl_enable(gpu, crtc, crtc->current_mode.clock);
 	kbl_dpll_clock_set(gpu, crtc);
@@ -243,7 +219,6 @@ void lil_kbl_hdmi_commit_modeset(LilGpu *gpu, LilCrtc *crtc) {
 	REG(WM_LINETIME(crtc->pipe_id)) = 0;
 	kbl_pipe_src_size_set(gpu, crtc);
 	kbl_plane_size_set(gpu, crtc);
-	// kbl_pipe_scaler_enable(gpu, crtc);
 	kbl_unmask_vblank(gpu, crtc);
 	kbl_transcoder_timings_configure(gpu, crtc);
 	kbl_transcoder_bpp_set(gpu, crtc, crtc->current_mode.bpp);
@@ -254,14 +229,14 @@ void lil_kbl_hdmi_commit_modeset(LilGpu *gpu, LilCrtc *crtc) {
 		uint32_t reg = kbl_chicken_trans_reg_for_port(crtc);
 		uint32_t val = REG(reg);
 
-		val |= (1 << 18) | (1 << 19);
+		val |= CHICKEN_TRANS_DDI_TRAINING_OVERRIDE_VALUE | CHICKEN_TRANS_DDI_TRAINING_OVERRIDE_ENABLE;
 
 		REG(reg) = val;
 		REG(reg);
 
 		lil_usleep(1);
 
-		val &= (1 << 18) | (1 << 19);
+		val &= CHICKEN_TRANS_DDI_TRAINING_OVERRIDE_VALUE | CHICKEN_TRANS_DDI_TRAINING_OVERRIDE_ENABLE;
 
 		REG(reg) = val;
 	}
@@ -283,16 +258,17 @@ void lil_kbl_hdmi_commit_modeset(LilGpu *gpu, LilCrtc *crtc) {
 	}
 
 	kbl_ddi_balance_leg_set(gpu, con->ddi_id, balance_leg);
-	REG(DDI_BUF_CTL(con->ddi_id)) |= 0x80000000;
+	REG(DDI_BUF_CTL(con->ddi_id)) |= DDI_BUF_CTL_ENABLE;
 	kbl_plane_enable(gpu, crtc, true);
 
-	uint32_t dip_data[8] = {0x0D0282, 0x3006C, 0, 0, 0, 0, 0, 0};
+	uint32_t dip_data[8] = { 0 };
+	hdmi_avi_infoframe_populate(crtc, &dip_data);
 
 	for(size_t i = 0; i < 8; i++) {
-		REG(VIDEO_DIP_AVI_DATA(crtc->pipe_id) + (4 * i)) = dip_data[i];
+		REG(kbl_transcoder_base(crtc->transcoder) + VIDEO_DIP_AVI_DATA(i)) = dip_data[i];
 	}
 
-	REG(VIDEO_DIP_CTL(crtc->pipe_id)) |= 0x1000;
+	REG(kbl_transcoder_base(crtc->transcoder) + VIDEO_DIP_CTL) |= VIDEO_DIP_CTL_ENABLE_AVI;
 }
 
 static uint8_t even_candidate_div[36] = {

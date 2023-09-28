@@ -49,6 +49,7 @@ void kbl_plane_enable(LilGpu *gpu, LilCrtc *crtc, bool vblank_wait);
 void kbl_plane_disable(LilGpu *gpu, LilCrtc *crtc);
 void kbl_plane_size_set(LilGpu *gpu, LilCrtc *crtc);
 
+uint32_t kbl_transcoder_base(LilTranscoder id);
 void kbl_transcoder_enable(LilGpu *gpu, LilCrtc *crtc);
 void kbl_transcoder_disable(LilGpu *gpu, LilTranscoder transcoder);
 void kbl_transcoder_ddi_disable(LilGpu *gpu, LilTranscoder transcoder);
@@ -65,7 +66,6 @@ void kbl_transcoder_configure_m_n(LilGpu *gpu, LilCrtc *crtc, uint32_t pixel_clo
 void kbl_pipe_src_size_set(LilGpu *gpu, LilCrtc *crtc);
 void kbl_pipe_dithering_enable(LilGpu *gpu, LilCrtc *crtc, uint8_t bpp);
 void kbl_pipe_scaler_disable(LilGpu *gpu, LilCrtc *crtc);
-void kbl_pipe_scaler_enable(LilGpu *gpu, LilCrtc *crtc);
 
 void kbl_encoder_edp_init(LilGpu *gpu, LilEncoder *enc);
 void kbl_encoder_dp_init(LilGpu *gpu, LilEncoder *enc, struct child_device *dev);
@@ -86,6 +86,8 @@ void kbl_psr_disable(LilGpu *gpu);
 
 uint16_t lil_brightness_get(LilGpu *gpu, LilConnector *con);
 void lil_brightness_set(LilGpu *gpu, LilConnector *con, uint16_t level);
+
+void hdmi_avi_infoframe_populate(LilCrtc *crtc, void *data);
 
 #ifdef __cplusplus
 }
