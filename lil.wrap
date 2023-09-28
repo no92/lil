@@ -4,4 +4,4 @@ url = https://github.com/no92/lil
 revision = electrode-gemini-cleanup-1
 
 [provide]
-lil_dep = dependency
+lil = dependency
