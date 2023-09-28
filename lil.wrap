@@ -1,7 +1,7 @@
 [wrap-git]
 directory = lil
-url = https://github.com/Matt8898/lil
-revision = master
+url = https://github.com/no92/lil
+revision = electrode-gemini-cleanup-1
 
 [provide]
 lil_dep = dependency
